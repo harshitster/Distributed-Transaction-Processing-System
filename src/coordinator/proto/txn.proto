@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package coordinator;
 
+option go_package = "github.com/harshitster/223B-Project/src/coordinator/proto;proto";
+
 service CoordinatorService {
   rpc Submit (TxnRequest) returns (TxnResponse);
 }
