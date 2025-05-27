@@ -3,13 +3,16 @@ package coordinator
 import (
 	"context"
 	"fmt"
+
+	"github.com/harshitster/223B-Project/src/coordinator/proto"
 )
 
 type RpcServer struct {
+	proto.UnimplementedCoordinatorServiceServer
 	Coord *Coordinator
 }
 
-func (r *RpcServer) Submit(ctx context.Context, req *TxnRequest) (*TxnResponse, error) {
+func (r *RpcServer) Submit(ctx context.Context, req *proto.TxnRequest) (*proto.TxnResponse, error) {
 	txn := &Transaction{
 		ID:       req.Id,
 		Op:       req.Op,
@@ -23,5 +26,5 @@ func (r *RpcServer) Submit(ctx context.Context, req *TxnRequest) (*TxnResponse, 
 		return nil, fmt.Errorf("failed to queue txn: %w", err)
 	}
 
-	return &TxnResponse{Accepted: true}, nil
+	return &proto.TxnResponse{Accepted: true}, nil
 }
