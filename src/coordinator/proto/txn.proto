@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package coordinator;
+
+service CoordinatorService {
+  rpc Submit (TxnRequest) returns (TxnResponse);
+}
+
+message TxnRequest {
+  string id = 1;
+  string op = 2;
+  repeated string accounts = 3;
+  int32 amount = 4;
+}
+
+message TxnResponse {
+  bool accepted = 1;
+}
