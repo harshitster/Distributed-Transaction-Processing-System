@@ -6,6 +6,7 @@ option go_package = "code/proto;proto";
 
 service CoordinatorService {
   rpc Txn (TxnRequest) returns (TxnResponse);
+   rpc GetStatus(GetStatusRequest) returns (GetStatusReply);
 }
 
 message TxnRequest {
@@ -17,4 +18,12 @@ message TxnRequest {
 
 message TxnResponse {
   bool accepted = 1;
+}
+
+message GetStatusRequest {
+  string txn_id = 1;
+}
+
+message GetStatusReply {
+  string status = 1; // One of: "PENDING", "PREPARED", "COMMITTED", "ABORTED", "UNKNOWN"
 }

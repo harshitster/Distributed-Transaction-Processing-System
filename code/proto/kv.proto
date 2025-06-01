@@ -10,6 +10,14 @@ service KVService {
   rpc Abort(AbortRequest) returns (Ack);
   rpc Get(GetRequest) returns (ValueReply);
   rpc Set(SetRequest) returns (Ack);
+  rpc QueryTxnStatus(QueryTxnRequest) returns (QueryTxnReply);
+}
+message QueryTxnRequest {
+  string txn_id = 1;
+}
+
+message QueryTxnReply {
+  string status = 1; // "PREPARED", "COMMITTED", or "UNKNOWN"
 }
 
 message PrepareRequest {

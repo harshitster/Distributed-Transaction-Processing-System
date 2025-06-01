@@ -48,6 +48,20 @@ func NewCoordinator(BinsJSON string, logPath string, timeout time.Duration, maxN
 	return coordinator, nil
 }
 
+func (c *Coordinator) GetStatus(ctx context.Context, req *proto.GetStatusRequest) (*proto.GetStatusReply, error) {
+	c.TxnMu.Lock()
+	defer c.TxnMu.Unlock()
+
+	txn, ok := c.TxnMap[req.TxnId]
+	if ok {
+		return &proto.GetStatusReply{Status: string(txn.Status)}, nil
+	}
+
+	// Optionally: parse c.logPath and scan for committed/aborted txn
+	// Otherwise, return UNKNOWN
+	return &proto.GetStatusReply{Status: "UNKNOWN"}, nil
+}
+
 func (c *Coordinator) LoadBinMappingConfig(path string) error {
 	file, err := os.ReadFile(path)
 	if err != nil {
@@ -107,7 +121,7 @@ func (c *Coordinator) QueueWorker() {
 		txn := c.TxnQueue[0]
 		c.TxnQueue = c.TxnQueue[1:]
 		c.QueueMu.Unlock()
-		go c.ProcessTransaction(txn)
+		c.ProcessTransaction(txn)
 	}
 }
 
