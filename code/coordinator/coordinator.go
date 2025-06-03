@@ -1,12 +1,14 @@
 package coordinator
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,208 +32,146 @@ type Coordinator struct {
 	logMu          sync.RWMutex
 }
 
-// // Load transactions in progress from log file (does NOT add to queue)
-// func (c *Coordinator) RecoverTxnLog() []*Transaction {
-// 	file, err := os.Open(c.logPath)
-// 	if err != nil {
-// 		log.Printf("Failed to read log: %v", err)
-// 		return nil
-// 	}
-// 	defer file.Close()
+// Load transactions in progress from log file: only one txn will be prepare or pending
+func (c *Coordinator) RecoverTxnLog() *Transaction {
+	file, err := os.Open(c.logPath)
+	if err != nil {
+		log.Printf("Failed to read log: %v", err)
+		return nil
+	}
+	defer file.Close()
 
-// 	scanner := bufio.NewScanner(file)
-// 	txnMap := make(map[string]*Transaction)
+	scanner := bufio.NewScanner(file)
+	txnMap := make(map[string]*Transaction)
 
-// 	for scanner.Scan() {
-// 		line := scanner.Text()
-// 		fields := strings.Fields(line)
-// 		if len(fields) < 3 {
-// 			continue
-// 		}
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
 
-// 		txnId := fields[1]
-// 		status := fields[2]
-// 		txn := txnMap[txnId]
-// 		if txn == nil {
-// 			txn = &Transaction{ID: txnId}
-// 			txnMap[txnId] = txn
-// 		}
-// 		txn.Status = TxnStatus(status)
-// 		log.Printf("Recovered txn %s with status %s", txnId, status)
-// 		c.TxnMap[txnId] = txn
-// 	}
+		txnId := fields[1]
+		status := fields[2]
+		txn := txnMap[txnId]
+		if txn == nil {
+			txn = &Transaction{ID: txnId}
+			txnMap[txnId] = txn
+		}
+		txn.Status = TxnStatus(status)
+		log.Printf("Recovered txn %s with status %s", txnId, status)
+	}
 
-// 	txns := []*Transaction{}
-// 	for _, txn := range txnMap {
-// 		if txn.Status == TxnPrepared || txn.Status == TxnPending {
-// 			txns = append(txns, txn)
-// 		}
-// 	}
-// 	return txns
-// }
+	for _, txn := range txnMap {
+		if txn.Status == TxnPrepared || txn.Status == TxnPending {
+			c.TxnMap[txn.ID] = txn
+			return txn
+		}
+	}
+	return nil
+}
 
-// // Append to queue file instead of saving full queue
-// func (c *Coordinator) AppendTxnToQueueFile(txn *Transaction, queuePath string) error {
-// 	f, err := os.OpenFile(queuePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer f.Close()
+// Append to queue file instead of saving full queue
+func (c *Coordinator) AppendTxnToQueueFile(txn *Transaction, queuePath string) error {
+	f, err := os.OpenFile(queuePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 
-// 	data, err := json.Marshal(txn)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	_, err = f.WriteString(string(data) + "\n")
-// 	return err
-// }
+	data, err := json.Marshal(txn)
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(string(data) + "\n")
+	return err
+}
 
-// // Recover queue by reading line-by-line appended JSON objects
-// func (c *Coordinator) RecoverQueueFromFile(queuePath string) error {
-// 	file, err := os.Open(queuePath)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer file.Close()
+// Recover queue by reading line-by-line appended JSON objects
+func (c *Coordinator) RecoverQueueFromFile(queuePath string) error {
+	file, err := os.Open(queuePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
-// 	scanner := bufio.NewScanner(file)
-// 	for scanner.Scan() {
-// 		line := scanner.Text()
-// 		var txn Transaction
-// 		if err := json.Unmarshal([]byte(line), &txn); err != nil {
-// 			continue
-// 		}
-// 		c.TxnQueue = append(c.TxnQueue, &txn)
-// 		c.TxnMap[txn.ID] = &txn
-// 		log.Printf("Recovered queued txn %s", txn.ID)
-// 	}
-// 	return scanner.Err()
-// }
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		var txn Transaction
+		if err := json.Unmarshal([]byte(line), &txn); err != nil {
+			continue
+		}
+		c.TxnQueue = append(c.TxnQueue, &txn)
+		c.TxnMap[txn.ID] = &txn
+		log.Printf("Recovered queued txn %s", txn.ID)
+	}
+	return scanner.Err()
+}
 
-// // Update QueueWorker to run recovery txn before queue
-// func (c *Coordinator) QueueWorker() {
-// 	recovered := c.RecoverTxnLog()
-// 	for _, txn := range recovered {
-// 		c.ProcessTransaction(txn)
-// 		c.RemoveTxnFromLog(txn.ID)
-// 	}
+// Remove processed transaction from queue.json
+func (c *Coordinator) RemoveTxnFromQueueFile(txnId string, queuePath string) error {
+	data, err := os.ReadFile(queuePath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(data), "\n")
+	var updated []string
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var txn Transaction
+		if err := json.Unmarshal([]byte(line), &txn); err != nil {
+			continue
+		}
+		if txn.ID != txnId {
+			updated = append(updated, line)
+		}
+	}
+	return os.WriteFile(queuePath, []byte(strings.Join(updated, "\n")), 0644)
+}
 
-// 	for {
-// 		c.QueueMu.Lock()
-// 		if len(c.TxnQueue) == 0 {
-// 			c.QueueMu.Unlock()
-// 			time.Sleep(100 * time.Millisecond)
-// 			continue
-// 		}
-// 		txn := c.TxnQueue[0]
-// 		c.TxnQueue = c.TxnQueue[1:]
-// 		c.QueueMu.Unlock()
+// Update QueueWorker to run recovery txn before queue
+func (c *Coordinator) QueueWorker() {
+	recovered := c.RecoverTxnLog()
+	if recovered != nil {
+		c.ProcessTransaction(recovered)
+	}
 
-// 		c.ProcessTransaction(txn)
-// 		c.RemoveTxnFromLog(txn.ID)
-// 	}
-// }
+	for {
+		c.QueueMu.Lock()
+		if len(c.TxnQueue) == 0 {
+			c.QueueMu.Unlock()
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		txn := c.TxnQueue[0]
+		c.TxnQueue = c.TxnQueue[1:]
+		c.QueueMu.Unlock()
 
-// // Update ChannelWorker to append to queue file
-// func (c *Coordinator) ChannelWorker() {
-// 	for txn := range c.ProcessChannel {
-// 		c.QueueMu.Lock()
-// 		c.TxnQueue = append(c.TxnQueue, txn)
-// 		_ = c.AppendTxnToQueueFile(txn, "queue.json")
-// 		c.QueueMu.Unlock()
+		c.ProcessTransaction(txn)
+		_ = c.RemoveTxnFromQueueFile(txn.ID, "queue.json")
+	}
+}
 
-// 		c.TxnMu.Lock()
-// 		c.TxnMap[txn.ID] = txn
-// 		c.TxnMu.Unlock()
+// Update ChannelWorker to append to queue file
+func (c *Coordinator) ChannelWorker() {
+	for txn := range c.ProcessChannel {
+		c.QueueMu.Lock()
+		c.TxnQueue = append(c.TxnQueue, txn)
+		_ = c.AppendTxnToQueueFile(txn, "queue.json")
+		c.QueueMu.Unlock()
 
-// 		log.Printf("Added transaction %s to the queue", txn.ID)
-// 	}
-// }
+		c.TxnMu.Lock()
+		c.TxnMap[txn.ID] = txn
+		c.TxnMu.Unlock()
 
-// func (c *Coordinator) RemoveTxnFromLog(txnId string) {
-// 	c.logMu.Lock()
-// 	defer c.logMu.Unlock()
+		log.Printf("Added transaction %s to the queue", txn.ID)
+	}
+}
 
-// 	lines, err := os.ReadFile(c.logPath)
-// 	if err != nil {
-// 		return
-// 	}
-// 	var updated []string
-// 	for _, line := range strings.Split(string(lines), "\n") {
-// 		if !strings.Contains(line, txnId) {
-// 			updated = append(updated, line)
-// 		}
-// 	}
-// 	os.WriteFile(c.logPath, []byte(strings.Join(updated, "\n")), 0644)
-// }
-
-// // Enhance NewCoordinator to include queue + txn log recovery
-// func NewCoordinator(BinsJSON string, logPath string, timeout time.Duration, maxNumTransactions int) (*Coordinator, error) {
-// 	coordinator := &Coordinator{
-// 		TxnMap:         make(map[string]*Transaction),
-// 		Timeout:        timeout,
-// 		ProcessChannel: make(chan *Transaction, maxNumTransactions),
-// 		logPath:        logPath,
-// 	}
-
-// 	if err := coordinator.LoadBinMappingConfig(BinsJSON); err != nil {
-// 		return nil, fmt.Errorf("could not load %s", BinsJSON)
-// 	}
-
-// 	_ = coordinator.RecoverQueueFromFile("queue.json")
-
-// 	go coordinator.ChannelWorker()
-// 	go coordinator.QueueWorker()
-// 	return coordinator, nil
-// }
-
-// // Updated ProcessTransaction to support different restart stages
-// func (c *Coordinator) ProcessTransaction(txn *Transaction) error {
-// 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
-// 	defer cancel()
-
-// 	if txn.Status == TxnPending {
-// 		log.Printf("Restarting txn %s from pending", txn.ID)
-// 	} else if txn.Status == TxnPrepared {
-// 		log.Printf("Restarting txn %s from prepared — starting commit phase", txn.ID)
-// 		return c.CommitPhase(ctx, txn)
-// 	}
-
-// 	logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnPending)
-// 	err := c.LogToFile(logEntry)
-// 	if err != nil {
-// 		txn.Status = TxnAborted
-// 		logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
-// 		c.LogToFile(logEntry)
-// 		return err
-// 	}
-// 	txn.Status = TxnPending
-
-// 	if !c.PreparePhase(ctx, txn) {
-// 		txn.Status = TxnAborted
-// 		c.AbortPhase(ctx, txn)
-// 		logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
-// 		c.LogToFile(logEntry)
-// 		return nil
-// 	}
-// 	logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnPrepared)
-// 	c.LogToFile(logEntry)
-// 	txn.Status = TxnPrepared
-
-// 	if !c.CommitPhase(ctx, txn) {
-// 		txn.Status = TxnAborted
-// 		c.AbortPhase(ctx, txn)
-// 		logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
-// 		c.LogToFile(logEntry)
-// 		return nil
-// 	}
-// 	logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnCommitted)
-// 	c.LogToFile(logEntry)
-// 	txn.Status = TxnCommitted
-
-// 	return nil
-// }
-
+// Enhance NewCoordinator to include queue + txn log recovery
 func NewCoordinator(BinsJSON string, logPath string, timeout time.Duration, maxNumTransactions int) (*Coordinator, error) {
 	coordinator := &Coordinator{
 		TxnMap:         make(map[string]*Transaction),
@@ -244,11 +184,30 @@ func NewCoordinator(BinsJSON string, logPath string, timeout time.Duration, maxN
 		return nil, fmt.Errorf("could not load %s", BinsJSON)
 	}
 
+	_ = coordinator.RecoverQueueFromFile("queue.json")
+
 	go coordinator.ChannelWorker()
 	go coordinator.QueueWorker()
-
 	return coordinator, nil
 }
+
+// func NewCoordinator(BinsJSON string, logPath string, timeout time.Duration, maxNumTransactions int) (*Coordinator, error) {
+// 	coordinator := &Coordinator{
+// 		TxnMap:         make(map[string]*Transaction),
+// 		Timeout:        timeout,
+// 		ProcessChannel: make(chan *Transaction, maxNumTransactions),
+// 		logPath:        logPath,
+// 	}
+
+// 	if err := coordinator.LoadBinMappingConfig(BinsJSON); err != nil {
+// 		return nil, fmt.Errorf("could not load %s", BinsJSON)
+// 	}
+
+// 	go coordinator.ChannelWorker()
+// 	go coordinator.QueueWorker()
+
+// 	return coordinator, nil
+// }
 
 func (c *Coordinator) GetStatus(ctx context.Context, req *proto.GetStatusRequest) (*proto.GetStatusReply, error) {
 	c.TxnMu.Lock()
@@ -297,64 +256,192 @@ func (c *Coordinator) LogToFile(entry string) error {
 	return err
 }
 
-func (c *Coordinator) ChannelWorker() {
-	for txn := range c.ProcessChannel {
-		c.QueueMu.Lock()
-		c.TxnQueue = append(c.TxnQueue, txn)
-		c.QueueMu.Unlock()
+// func (c *Coordinator) ChannelWorker() {
+// 	for txn := range c.ProcessChannel {
+// 		c.QueueMu.Lock()
+// 		c.TxnQueue = append(c.TxnQueue, txn)
+// 		c.QueueMu.Unlock()
 
-		c.TxnMu.Lock()
-		c.TxnMap[txn.ID] = txn
-		c.TxnMu.Unlock()
+// 		c.TxnMu.Lock()
+// 		c.TxnMap[txn.ID] = txn
+// 		c.TxnMu.Unlock()
 
-		log.Printf("Added transaction %s to the queue", txn.ID)
-	}
-}
+// 		log.Printf("Added transaction %s to the queue", txn.ID)
+// 	}
+// }
 
-func (c *Coordinator) QueueWorker() {
-	for {
-		c.QueueMu.Lock()
-		if len(c.TxnQueue) == 0 {
-			c.QueueMu.Unlock()
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
+// func (c *Coordinator) QueueWorker() {
+// 	for {
+// 		c.QueueMu.Lock()
+// 		if len(c.TxnQueue) == 0 {
+// 			c.QueueMu.Unlock()
+// 			time.Sleep(100 * time.Millisecond)
+// 			continue
+// 		}
 
-		txn := c.TxnQueue[0]
-		c.TxnQueue = c.TxnQueue[1:]
-		c.QueueMu.Unlock()
-		c.ProcessTransaction(txn)
-	}
-}
+// 		txn := c.TxnQueue[0]
+// 		c.TxnQueue = c.TxnQueue[1:]
+// 		c.QueueMu.Unlock()
+// 		c.ProcessTransaction(txn)
+// 	}
+// }
 
+// func (c *Coordinator) ProcessTransaction(txn *Transaction) error {
+// 	defer func() {
+// 		c.TxnMu.Lock()
+// 		delete(c.TxnMap, txn.ID)
+// 		c.TxnMu.Unlock()
+// 	}()
+
+// 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
+// 	defer cancel()
+
+// 	logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnPending)
+// 	err := c.LogToFile(logEntry)
+// 	if err != nil {
+// 		txn.Status = TxnAborted
+// 		logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
+// 		err = c.LogToFile(logEntry)
+// 		return err
+// 	}
+// 	txn.Status = TxnPending
+
+// 	if !c.PreparePhase(ctx, txn) {
+// 		txn.Status = TxnAborted
+// 		c.AbortPhase(ctx, txn)
+// 		logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
+// 		err = c.LogToFile(logEntry)
+// 		return err
+// 	}
+// 	logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnPrepared)
+// 	c.LogToFile(logEntry)
+// 	txn.Status = TxnPrepared
+
+// 	if !c.CommitPhase(ctx, txn) {
+// 		txn.Status = TxnAborted
+// 		c.AbortPhase(ctx, txn)
+// 		logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
+// 		err = c.LogToFile(logEntry)
+// 		return err
+// 	}
+// 	logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnCommitted)
+// 	c.LogToFile(logEntry)
+// 	txn.Status = TxnCommitted
+
+// 	return nil
+// }
+
+// // Updated ProcessTransaction to support different restart stages
+// func (c *Coordinator) ProcessTransaction(txn *Transaction) error {
+// 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
+// 	defer cancel()
+
+// 	if txn.Status == TxnPrepared {
+// 		log.Printf("Restarting txn %s from prepared — starting commit phase", txn.ID)
+// 		if !c.CommitPhase(ctx, txn) {
+// 			txn.Status = TxnAborted
+// 			c.AbortPhase(ctx, txn)
+// 			logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
+// 			return c.LogToFile(logEntry)
+// 		}
+// 		logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnCommitted)
+// 		c.LogToFile(logEntry)
+// 		txn.Status = TxnCommitted
+// 		return nil
+// 	} else if txn.Status == TxnPending {
+// 		log.Printf("Restarting txn %s from pending — redoing prepare phase", txn.ID)
+// 	} else {
+// 		logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnPending)
+// 		err := c.LogToFile(logEntry)
+// 		if err != nil {
+// 			txn.Status = TxnAborted
+// 			logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
+// 			c.LogToFile(logEntry)
+// 			return err
+// 		}
+// 		txn.Status = TxnPending
+// 	}
+
+// 	if !c.PreparePhase(ctx, txn) {
+// 		txn.Status = TxnAborted
+// 		c.AbortPhase(ctx, txn)
+// 		logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
+// 		c.LogToFile(logEntry)
+// 		return nil
+// 	}
+// 	logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnPrepared)
+// 	c.LogToFile(logEntry)
+// 	txn.Status = TxnPrepared
+
+// 	if !c.CommitPhase(ctx, txn) {
+// 		txn.Status = TxnAborted
+// 		c.AbortPhase(ctx, txn)
+// 		logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
+// 		c.LogToFile(logEntry)
+// 		return nil
+// 	}
+// 	logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnCommitted)
+// 	c.LogToFile(logEntry)
+// 	txn.Status = TxnCommitted
+
+// 	return nil
+// }
+
+// Updated ProcessTransaction to support different restart stages with timeout for prepare
 func (c *Coordinator) ProcessTransaction(txn *Transaction) error {
-	defer func() {
-		c.TxnMu.Lock()
-		delete(c.TxnMap, txn.ID)
-		c.TxnMu.Unlock()
-	}()
-
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
-	logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnPending)
-	err := c.LogToFile(logEntry)
-	if err != nil {
-		txn.Status = TxnAborted
-		logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
-		err = c.LogToFile(logEntry)
-		return err
+	if txn.Status == TxnPrepared {
+		log.Printf("Restarting txn %s from prepared — starting commit phase", txn.ID)
+		if !c.CommitPhase(ctx, txn) {
+			txn.Status = TxnAborted
+			c.AbortPhase(ctx, txn)
+			logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
+			return c.LogToFile(logEntry)
+		}
+		logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnCommitted)
+		c.LogToFile(logEntry)
+		txn.Status = TxnCommitted
+		return nil
+	} else if txn.Status == TxnPending {
+		log.Printf("Restarting txn %s from pending — redoing prepare phase", txn.ID)
+	} else {
+		logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnPending)
+		err := c.LogToFile(logEntry)
+		if err != nil {
+			txn.Status = TxnAborted
+			logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
+			c.LogToFile(logEntry)
+			return err
+		}
+		txn.Status = TxnPending
 	}
-	txn.Status = TxnPending
 
-	if !c.PreparePhase(ctx, txn) {
+	done := make(chan bool, 1)
+	go func() {
+		done <- c.PreparePhase(ctx, txn)
+	}()
+
+	select {
+	case success := <-done:
+		if !success {
+			txn.Status = TxnAborted
+			c.AbortPhase(ctx, txn)
+			logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
+			c.LogToFile(logEntry)
+			return nil
+		}
+	case <-ctx.Done():
+		log.Printf("Timeout waiting for prepare acks on txn %s — aborting", txn.ID)
 		txn.Status = TxnAborted
 		c.AbortPhase(ctx, txn)
-		logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
-		err = c.LogToFile(logEntry)
-		return err
+		logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
+		c.LogToFile(logEntry)
+		return nil
 	}
-	logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnPrepared)
+
+	logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnPrepared)
 	c.LogToFile(logEntry)
 	txn.Status = TxnPrepared
 
@@ -362,8 +449,8 @@ func (c *Coordinator) ProcessTransaction(txn *Transaction) error {
 		txn.Status = TxnAborted
 		c.AbortPhase(ctx, txn)
 		logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
-		err = c.LogToFile(logEntry)
-		return err
+		c.LogToFile(logEntry)
+		return nil
 	}
 	logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnCommitted)
 	c.LogToFile(logEntry)

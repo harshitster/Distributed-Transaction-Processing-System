@@ -57,6 +57,43 @@ func (s *KVServer) logToFile(entry string) error {
 	return err
 }
 
+// func (s *KVServer) RecoverFromLog() error {
+// 	file, err := os.Open(s.logFilePath)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer file.Close()
+
+// 	scanner := bufio.NewScanner(file)
+// 	for scanner.Scan() {
+// 		line := scanner.Text()
+// 		fields := strings.Fields(line)
+// 		if len(fields) < 2 {
+// 			continue
+// 		}
+// 		switch fields[0] {
+// 		case "PREPARE":
+// 			txnId, key := fields[1], fields[2]
+// 			value, _ := strconv.Atoi(fields[3])
+// 			s.prepare_log[txnId] = PreparedTxn{key: key, value: value}
+// 		case "COMMIT":
+// 			txnId := fields[1]
+// 			if prep, ok := s.prepare_log[txnId]; ok {
+// 				s.store[prep.key] = prep.value
+// 				delete(s.prepare_log, txnId)
+// 			}
+// 		case "SET":
+// 			key := fields[1]
+// 			value, _ := strconv.Atoi(fields[2])
+// 			s.store[key] = value
+// 		case "ABORT":
+// 			txnId := fields[1]
+// 			delete(s.prepare_log, txnId)
+// 		}
+// 	}
+// 	return scanner.Err()
+// }
+
 func (s *KVServer) RecoverFromLog() error {
 	file, err := os.Open(s.logFilePath)
 	if err != nil {
@@ -76,21 +113,57 @@ func (s *KVServer) RecoverFromLog() error {
 			txnId, key := fields[1], fields[2]
 			value, _ := strconv.Atoi(fields[3])
 			s.prepare_log[txnId] = PreparedTxn{key: key, value: value}
+
 		case "COMMIT":
 			txnId := fields[1]
 			if prep, ok := s.prepare_log[txnId]; ok {
 				s.store[prep.key] = prep.value
 				delete(s.prepare_log, txnId)
+			} else {
+				log.Printf("Warning: COMMIT for txn %s found with no corresponding PREPARE", txnId)
 			}
-		case "SET":
-			key := fields[1]
-			value, _ := strconv.Atoi(fields[2])
-			s.store[key] = value
+
 		case "ABORT":
+			txnId := fields[1]
+			delete(s.prepare_log, txnId)
+
+		case "DISCARD":
 			txnId := fields[1]
 			delete(s.prepare_log, txnId)
 		}
 	}
+
+	// Restart timeout logic for all recovered prepares
+	for txnId := range s.prepare_log {
+		go func(txnId string) {
+			time.Sleep(5 * time.Second)
+			status := queryCoordinator(txnId)
+
+			if status == "COMMITTED" {
+				log.Printf("Recovery: Coordinator says COMMITTED for txn %s", txnId)
+				s.Commit(context.Background(), &proto.CommitRequest{TxnId: txnId})
+				return
+			} else if status == "ABORTED" {
+				log.Printf("Recovery: Coordinator says ABORTED for txn %s", txnId)
+				s.Abort(context.Background(), &proto.AbortRequest{TxnId: txnId})
+				return
+			}
+
+			// Query peers as fallback
+			result := queryBackendsForTxnStatus(txnId, s.peerAddresses, s.selfAddress)
+			if result == "COMMITTED" {
+				log.Printf("Recovery: Peer confirms COMMITTED for txn %s", txnId)
+				s.Commit(context.Background(), &proto.CommitRequest{TxnId: txnId})
+			} else {
+				log.Printf("Recovery: Txn %s discarded after no confirmation", txnId)
+				s.mu.Lock()
+				delete(s.prepare_log, txnId)
+				s.mu.Unlock()
+				s.logToFile(fmt.Sprintf("DISCARD %s\n", txnId))
+			}
+		}(txnId)
+	}
+
 	return scanner.Err()
 }
 
