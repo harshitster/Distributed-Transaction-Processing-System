@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package code;
+
+option go_package = "code/proto;proto";
+
+// This service is implemented by the client to receive status updates
+service ClientService {
+  rpc ReceiveTxnStatus(TxnStatusUpdate) returns (ClientAck);
+}
+
+message TxnStatusUpdate {
+  string txn_id = 1;
+  string status = 2; // "COMMITTED", "ABORTED", "DISCARDED"
+}
+
+message ClientAck {
+  bool success = 1;
+}

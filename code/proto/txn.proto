@@ -7,6 +7,7 @@ option go_package = "code/proto;proto";
 service CoordinatorService {
   rpc Txn (TxnRequest) returns (TxnResponse);
    rpc GetStatus(GetStatusRequest) returns (GetStatusReply);
+   rpc AckTxn(AckTxnRequest) returns (CoordAck); 
 }
 
 message TxnRequest {
@@ -14,6 +15,7 @@ message TxnRequest {
   string op = 2;
   repeated string accounts = 3;
   int32 amount = 4;
+  string client_addr = 5; 
 }
 
 message TxnResponse {
@@ -26,4 +28,12 @@ message GetStatusRequest {
 
 message GetStatusReply {
   string status = 1; // One of: "PENDING", "PREPARED", "COMMITTED", "ABORTED", "UNKNOWN"
+}
+
+message AckTxnRequest {
+  string txn_id = 1;
+}
+
+message CoordAck {
+  bool success = 1;
 }
