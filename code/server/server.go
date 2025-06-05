@@ -228,8 +228,24 @@ func (s *KVServer) Prepare(ctx context.Context, req *proto.PrepareRequest) (*pro
 
 func (s *KVServer) PostPrepare(txnId string) {
 	time.Sleep(10 * time.Second)
-	status := s.queryCoordinator(txnId)
 
+	// Step 1: Check own log file for COMMITTED entry
+	log.Printf("PostPrepare: Checking local log file %s for transaction %s", s.logFilePath, txnId)
+	data, err := os.ReadFile(s.logFilePath)
+	if err == nil {
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, fmt.Sprintf("COMMIT %s", txnId)) {
+				log.Printf("PostPrepare: Found COMMIT entry in local log for txn %s, exiting", txnId)
+				return
+			}
+		}
+	} else {
+		log.Printf("PostPrepare: Failed to read log file %s: %v", s.logFilePath, err)
+	}
+
+	// Step 2: Query coordinator
+	status := s.queryCoordinator(txnId)
 	if status == "COMMITTED" {
 		log.Printf("Coordinator says COMMITTED for txn %s", txnId)
 		s.Commit(context.Background(), &proto.CommitRequest{TxnId: txnId})
@@ -240,6 +256,7 @@ func (s *KVServer) PostPrepare(txnId string) {
 		return
 	}
 
+	// Step 3: Fallback to peer query
 	result := s.queryBackendsForTxnStatus(txnId)
 	if result == "COMMITTED" {
 		log.Printf("Peer confirms COMMITTED for txn %s", txnId)
@@ -249,13 +266,12 @@ func (s *KVServer) PostPrepare(txnId string) {
 		s.mu.Lock()
 		txnOps, exists := s.prepare_log[txnId]
 		if exists {
-			// Log each operation being discarded
 			for key, prep := range txnOps {
 				discardEntry := fmt.Sprintf("DISCARD %s %s %d\n", txnId, key, prep.value)
 				s.logToFile(discardEntry)
 			}
+			delete(s.prepare_log, txnId)
 		}
-		delete(s.prepare_log, txnId)
 		s.mu.Unlock()
 	}
 }
