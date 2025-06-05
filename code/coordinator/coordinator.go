@@ -86,9 +86,48 @@ func (c *Coordinator) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.Tx
 	}
 }
 
-func (c *Coordinator) AckTxn(txnId string) (*proto.CoordAck, error) {
+// func (c *Coordinator) AckTxn(txnId string) (*proto.CoordAck, error) {
+// 	c.TxnMu.Lock()
+// 	defer c.TxnMu.Unlock()
+
+// 	txn, ok := c.TxnMap[txnId]
+// 	if !ok || txn.Status != TxnCommitted {
+// 		return &proto.CoordAck{Success: false}, nil
+// 	}
+
+// 	log.Printf("Client acknowledged committed txn %s", txnId)
+// 	delete(c.TxnMap, txnId)
+
+// 	// Remove txn from log
+// 	data, err := os.ReadFile(c.logPath)
+// 	if err != nil {
+// 		log.Printf("Failed to read log file for cleanup: %v", err)
+// 		return &proto.CoordAck{Success: false}, nil
+// 	}
+
+// 	lines := strings.Split(string(data), "\n")
+// 	var updated []string
+// 	for _, line := range lines {
+// 		// Match lines like: "Transaction abc123: COMMITTED"
+// 		if !strings.Contains(line, fmt.Sprintf("Transaction %s:", txnId)) {
+// 			updated = append(updated, line)
+// 		}
+// 	}
+
+// 	err = os.WriteFile(c.logPath, []byte(strings.Join(updated, "\n")), 0644)
+// 	if err != nil {
+// 		log.Printf("Failed to write updated log after removing txn %s: %v", txnId, err)
+// 	} else {
+// 		log.Printf("Txn %s removed from log after client ACK", txnId)
+// 	}
+// 	return &proto.CoordAck{Success: true}, nil
+// }
+
+func (c *Coordinator) AckTxn(ctx context.Context, req *proto.AckTxnRequest) (*proto.CoordAck, error) {
 	c.TxnMu.Lock()
 	defer c.TxnMu.Unlock()
+
+	txnId := req.TxnId
 
 	txn, ok := c.TxnMap[txnId]
 	if !ok || txn.Status != TxnCommitted {
@@ -253,6 +292,52 @@ func sendAckToClient(addr, txnId, status string) error {
 	}
 	return err
 }
+
+// func (c *Coordinator) QueueWorker() {
+// 	recovered := c.RecoverTxnLog()
+// 	if recovered != nil {
+// 		c.ProcessTransaction(recovered)
+// 	}
+
+// 	for {
+// 		c.QueueMu.Lock()
+// 		if len(c.TxnQueue) == 0 {
+// 			c.QueueMu.Unlock()
+// 			time.Sleep(100 * time.Millisecond)
+// 			continue
+// 		}
+// 		txn := c.TxnQueue[0]
+// 		c.TxnQueue = c.TxnQueue[1:]
+// 		c.QueueMu.Unlock()
+
+// 		// Check if transaction already committed in log
+// 		if c.hasTxnCommittedInLog(txn.ID) {
+// 			log.Printf("Txn %s already committed. Sending commit ACK to %s", txn.ID, txn.ClientAddr)
+// 			_ = sendAckToClient(txn.ClientAddr, txn.ID, "COMMITTED")
+// 			continue
+// 		}
+
+// 		// Check if it's in prepare state (skip duplicate)
+// 		if txn.Status == TxnPrepared {
+// 			log.Printf("Txn %s is still in PREPARE. Discarding duplicate.", txn.ID)
+// 			continue
+// 		}
+
+// 		err := c.ProcessTransaction(txn)
+
+// 		if err == nil && txn.Status == TxnCommitted {
+// 			log.Printf("Txn %s committed. Sending ACK to client %s", txn.ID, txn.ClientAddr)
+// 			_ = sendAckToClient(txn.ClientAddr, txn.ID, "COMMITTED")
+// 			// leave in log; will be cleaned by AckTxn
+// 		} else {
+// 			log.Printf("Txn %s aborted. Not sending ACK.", txn.ID)
+// 			// optional: remove from log here if aborted
+// 		}
+
+// 		_ = c.RemoveTxnFromQueueFile(txn.ID, "queue.json")
+// 	}
+// }
+
 func (c *Coordinator) QueueWorker() {
 	recovered := c.RecoverTxnLog()
 	if recovered != nil {
@@ -266,18 +351,17 @@ func (c *Coordinator) QueueWorker() {
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
+
 		txn := c.TxnQueue[0]
 		c.TxnQueue = c.TxnQueue[1:]
 		c.QueueMu.Unlock()
 
-		// Check if transaction already committed in log
 		if c.hasTxnCommittedInLog(txn.ID) {
 			log.Printf("Txn %s already committed. Sending commit ACK to %s", txn.ID, txn.ClientAddr)
 			_ = sendAckToClient(txn.ClientAddr, txn.ID, "COMMITTED")
 			continue
 		}
 
-		// Check if it's in prepare state (skip duplicate)
 		if txn.Status == TxnPrepared {
 			log.Printf("Txn %s is still in PREPARE. Discarding duplicate.", txn.ID)
 			continue
@@ -297,29 +381,6 @@ func (c *Coordinator) QueueWorker() {
 		_ = c.RemoveTxnFromQueueFile(txn.ID, "queue.json")
 	}
 }
-
-// Update QueueWorker to run recovery txn before queue
-// func (c *Coordinator) QueueWorker() {
-// 	recovered := c.RecoverTxnLog()
-// 	if recovered != nil {
-// 		c.ProcessTransaction(recovered)
-// 	}
-
-// 	for {
-// 		c.QueueMu.Lock()
-// 		if len(c.TxnQueue) == 0 {
-// 			c.QueueMu.Unlock()
-// 			time.Sleep(100 * time.Millisecond)
-// 			continue
-// 		}
-// 		txn := c.TxnQueue[0]
-// 		c.TxnQueue = c.TxnQueue[1:]
-// 		c.QueueMu.Unlock()
-
-// 		c.ProcessTransaction(txn)
-// 		_ = c.RemoveTxnFromQueueFile(txn.ID, "queue.json")
-// 	}
-// }
 
 // Update ChannelWorker to append to queue file
 func (c *Coordinator) ChannelWorker() {
