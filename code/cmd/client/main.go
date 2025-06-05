@@ -25,17 +25,17 @@ func main() {
 	fmt.Println("=== Example 1: Transfer Transaction ===")
 	transferExample(c)
 
-	fmt.Println("\n=== Example 2: Credit Transaction ===")
-	creditExample(c)
+	// fmt.Println("\n=== Example 2: Credit Transaction ===")
+	// creditExample(c)
 
-	fmt.Println("\n=== Example 3: Debit Transaction ===")
-	debitExample(c)
+	// fmt.Println("\n=== Example 3: Debit Transaction ===")
+	// debitExample(c)
 
-	fmt.Println("\n=== Example 4: Manual Transaction Handling ===")
-	manualTransactionExample(c)
+	// fmt.Println("\n=== Example 4: Manual Transaction Handling ===")
+	// manualTransactionExample(c)
 
-	fmt.Println("\nClient is running. Press Ctrl+C to exit.")
-	select {}
+	// fmt.Println("\nClient is running. Press Ctrl+C to exit.")
+	// select {}
 }
 
 func transferExample(c *client.Client) {
@@ -44,7 +44,7 @@ func transferExample(c *client.Client) {
 	status, err := c.ExecuteTransactionWithWait(
 		txnID,
 		"transfer",
-		[]string{"alice", "bob"},
+		[]string{"alice", "kingkohli"},
 		100,
 		30*time.Second,
 	)

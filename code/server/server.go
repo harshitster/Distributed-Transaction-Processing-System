@@ -20,7 +20,7 @@ type KVServer struct {
 	proto.UnimplementedKVServiceServer
 
 	store              map[string]int
-	prepare_log        map[string]PreparedTxn
+	prepare_log        map[string]map[string]PreparedTxn // txnId -> accountKey -> PreparedTxn
 	mu                 sync.Mutex
 	logFilePath        string
 	peerAddresses      []string
@@ -36,7 +36,7 @@ type PreparedTxn struct {
 func NewKVServer(logFilePath string, peerAddresses []string, selfAddress string, coordinatorAddress string) *KVServer {
 	s := &KVServer{
 		store:              make(map[string]int),
-		prepare_log:        make(map[string]PreparedTxn),
+		prepare_log:        make(map[string]map[string]PreparedTxn),
 		logFilePath:        logFilePath,
 		peerAddresses:      peerAddresses,
 		selfAddress:        selfAddress,
@@ -67,20 +67,36 @@ func (s *KVServer) RecoverFromLog() error {
 		}
 		switch fields[0] {
 		case "PREPARE":
+			if len(fields) < 4 {
+				continue
+			}
 			txnId, key := fields[1], fields[2]
 			value, _ := strconv.Atoi(fields[3])
-			s.prepare_log[txnId] = PreparedTxn{key: key, value: value}
+
+			if s.prepare_log[txnId] == nil {
+				s.prepare_log[txnId] = make(map[string]PreparedTxn)
+			}
+			s.prepare_log[txnId][key] = PreparedTxn{key: key, value: value}
 		case "COMMIT":
 			txnId := fields[1]
-			if prep, ok := s.prepare_log[txnId]; ok {
-				s.store[prep.key] = prep.value
+			if txnOps, ok := s.prepare_log[txnId]; ok {
+				for _, prep := range txnOps {
+					s.store[prep.key] = prep.value
+				}
 				delete(s.prepare_log, txnId)
 			} else {
 				log.Printf("Warning: COMMIT for txn %s found with no corresponding PREPARE", txnId)
 			}
 		case "ABORT":
-			txnId := fields[1]
-			delete(s.prepare_log, txnId)
+			if len(fields) >= 4 {
+				// New format: ABORT txnId key value
+				txnId := fields[1]
+				delete(s.prepare_log, txnId)
+			} else {
+				// Old format: ABORT txnId (for backward compatibility)
+				txnId := fields[1]
+				delete(s.prepare_log, txnId)
+			}
 		case "DISCARD":
 			txnId := fields[1]
 			delete(s.prepare_log, txnId)
@@ -89,9 +105,9 @@ func (s *KVServer) RecoverFromLog() error {
 		}
 	}
 
-	for txnId := range s.prepare_log {
-		go s.PostPrepare(txnId)
-	}
+	// for txnId := range s.prepare_log {
+	// 	go s.PostPrepare(txnId)
+	// }
 
 	return scanner.Err()
 }
@@ -108,6 +124,12 @@ func (s *KVServer) logToFile(entry string) error {
 }
 
 func (s *KVServer) Prepare(ctx context.Context, req *proto.PrepareRequest) (*proto.Ack, error) {
+	log.Printf("=== PREPARE CALLED ===")
+	log.Printf("PREPARE: TxnId: %s", req.TxnId)
+	log.Printf("PREPARE: Key: %s", req.Key)
+	log.Printf("PREPARE: Value: %s", req.Value)
+	log.Printf("PREPARE: Operation: %s", req.Operation)
+
 	if req.TxnId == "" || req.Key == "" || req.Value == "" {
 		return &proto.Ack{Success: false}, fmt.Errorf("transaction ID, key, and value cannot be empty")
 	}
@@ -119,14 +141,18 @@ func (s *KVServer) Prepare(ctx context.Context, req *proto.PrepareRequest) (*pro
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, exists := s.prepare_log[req.TxnId]; exists {
-		return &proto.Ack{Success: true}, nil
-	}
-
 	txnId := req.TxnId
 	key := req.Key
 	value := req.Value
 	operation := req.Operation
+
+	// Check if this specific operation for this transaction already exists
+	if txnOps, exists := s.prepare_log[txnId]; exists {
+		if _, opExists := txnOps[key]; opExists {
+			log.Printf("PREPARE: Operation for transaction %s and key %s already exists, returning success", txnId, key)
+			return &proto.Ack{Success: true}, nil
+		}
+	}
 
 	amount, err := strconv.Atoi(value)
 	if err != nil {
@@ -135,38 +161,68 @@ func (s *KVServer) Prepare(ctx context.Context, req *proto.PrepareRequest) (*pro
 
 	currentBalance, exists := s.store[key]
 	if !exists {
+		log.Printf("PREPARE: Key %s does not exist, defaulting balance to 0", key)
 		currentBalance = 0
+	} else {
+		log.Printf("PREPARE: Current balance for key %s: %d", key, currentBalance)
+	}
+
+	// Log current store contents for debugging
+	log.Printf("PREPARE: Current store contents:")
+	for k, v := range s.store {
+		log.Printf("  %s: %d", k, v)
 	}
 
 	newValue := 0
 	switch operation {
 	case "DEBIT":
 		newValue = currentBalance - amount
+		log.Printf("PREPARE: DEBIT calculation: %d - %d = %d", currentBalance, amount, newValue)
 		if newValue < 0 {
+			log.Printf("PREPARE: DEBIT failed - insufficient funds: current balance %d, debit amount %d", currentBalance, amount)
 			return &proto.Ack{Success: false}, fmt.Errorf("insufficient funds: current balance %d, debit amount %d", currentBalance, amount)
 		}
 	case "CREDIT":
 		newValue = currentBalance + amount
+		log.Printf("PREPARE: CREDIT calculation: %d + %d = %d", currentBalance, amount, newValue)
 	default:
 		return &proto.Ack{Success: false}, fmt.Errorf("unknown operation: %s", operation)
 	}
 
-	s.prepare_log[txnId] = PreparedTxn{
+	// Initialize transaction map if it doesn't exist
+	if s.prepare_log[txnId] == nil {
+		s.prepare_log[txnId] = make(map[string]PreparedTxn)
+		log.Printf("PREPARE: Created new transaction entry for txnId: %s", txnId)
+	}
+
+	s.prepare_log[txnId][key] = PreparedTxn{
 		key:   key,
 		value: newValue,
 	}
+	log.Printf("PREPARE: Stored in prepare_log - txnId: %s, key: %s, value: %d", txnId, key, newValue)
 
 	entry := fmt.Sprintf("PREPARE %s %s %d\n", txnId, key, newValue)
+	log.Printf("PREPARE: Writing to log file %s: %s", s.logFilePath, strings.TrimSpace(entry))
 	err = s.logToFile(entry)
 
 	if err != nil {
-		log.Printf("Failed to write prepare message to persistent log: %v", err)
-		delete(s.prepare_log, txnId)
+		log.Printf("PREPARE: Failed to write prepare message to persistent log: %v", err)
+		delete(s.prepare_log[txnId], key)
+		if len(s.prepare_log[txnId]) == 0 {
+			delete(s.prepare_log, txnId)
+		}
 		return &proto.Ack{Success: false}, err
 	}
 
-	go s.PostPrepare(txnId)
+	// Only start PostPrepare goroutine once per transaction
+	if len(s.prepare_log[txnId]) == 1 {
+		log.Printf("PREPARE: Starting PostPrepare goroutine for txnId: %s", txnId)
+		go s.PostPrepare(txnId)
+	} else {
+		log.Printf("PREPARE: PostPrepare already running for txnId: %s (operation count: %d)", txnId, len(s.prepare_log[txnId]))
+	}
 
+	log.Printf("PREPARE SUCCESS: Transaction %s prepared successfully for key %s", txnId, key)
 	return &proto.Ack{Success: true}, nil
 }
 
@@ -190,9 +246,16 @@ func (s *KVServer) PostPrepare(txnId string) {
 	} else if result == "UNKNOWN" {
 		log.Printf("Txn %s discarded after timeout", txnId)
 		s.mu.Lock()
+		txnOps, exists := s.prepare_log[txnId]
+		if exists {
+			// Log each operation being discarded
+			for key, prep := range txnOps {
+				discardEntry := fmt.Sprintf("DISCARD %s %s %d\n", txnId, key, prep.value)
+				s.logToFile(discardEntry)
+			}
+		}
 		delete(s.prepare_log, txnId)
 		s.mu.Unlock()
-		s.logToFile(fmt.Sprintf("DISCARD %s\n", txnId))
 	}
 }
 
@@ -315,34 +378,63 @@ func (s *KVServer) queryCoordinator(txnId string) string {
 }
 
 func (s *KVServer) Commit(ctx context.Context, req *proto.CommitRequest) (*proto.Ack, error) {
+	log.Printf("=== COMMIT CALLED ===")
+	log.Printf("COMMIT: TxnId: %s", req.TxnId)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	txnId := req.TxnId
 
-	prep, exists := s.prepare_log[txnId]
+	txnOps, exists := s.prepare_log[txnId]
 	if !exists {
+		log.Printf("COMMIT: Transaction %s not found in prepare_log", txnId)
 		return &proto.Ack{Success: false}, fmt.Errorf("Prepare message for transaction ID '%s' does not exist in memory", txnId)
 	}
 
-	s.store[prep.key] = prep.value
+	log.Printf("COMMIT: Found transaction %s with %d operations to commit", txnId, len(txnOps))
+
+	// Apply all operations for this transaction
+	for key, prep := range txnOps {
+		oldValue := s.store[prep.key]
+		s.store[prep.key] = prep.value
+		log.Printf("COMMIT: Applied operation - key: %s, old value: %d, new value: %d", prep.key, oldValue, prep.value)
+
+		// Log each operation being committed
+		commitEntry := fmt.Sprintf("COMMIT %s %s %d\n", txnId, key, prep.value)
+		log.Printf("COMMIT: Writing to log file %s: %s", s.logFilePath, strings.TrimSpace(commitEntry))
+		s.logToFile(commitEntry)
+	}
+
 	delete(s.prepare_log, txnId)
+	log.Printf("COMMIT: Successfully committed transaction %s", txnId)
 
-	logEntry := fmt.Sprintf("COMMIT %s\n", txnId)
-	err := s.logToFile(logEntry)
-
-	return &proto.Ack{Success: true}, err
+	return &proto.Ack{Success: true}, nil
 }
 
 func (s *KVServer) Abort(ctx context.Context, req *proto.AbortRequest) (*proto.Ack, error) {
+	log.Printf("=== ABORT CALLED ===")
+	log.Printf("ABORT: TxnId: %s", req.TxnId)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	txnId := req.TxnId
-	_, exists := s.prepare_log[txnId]
+	txnOps, exists := s.prepare_log[txnId]
 	if exists {
+		log.Printf("ABORT: Found transaction %s with %d operations to abort", txnId, len(txnOps))
+
+		// Log each operation being aborted
+		for key, prep := range txnOps {
+			abortEntry := fmt.Sprintf("ABORT %s %s %d\n", txnId, key, prep.value)
+			log.Printf("ABORT: Writing to log file %s: %s", s.logFilePath, strings.TrimSpace(abortEntry))
+			s.logToFile(abortEntry)
+		}
+
 		delete(s.prepare_log, txnId)
-		s.logToFile(fmt.Sprintf("ABORT %s", txnId))
+		log.Printf("ABORT: Successfully aborted transaction %s", txnId)
+	} else {
+		log.Printf("ABORT: Transaction %s not found in prepare_log", txnId)
 	}
 
 	return &proto.Ack{Success: true}, nil
