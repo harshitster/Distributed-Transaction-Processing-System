@@ -44,7 +44,7 @@ func transferExample(c *client.Client) {
 	status, err := c.ExecuteTransactionWithWait(
 		txnID,
 		"transfer",
-		[]string{"alice", "kingkohli"},
+		[]string{"alice", "bob"},
 		100,
 		30*time.Second,
 	)

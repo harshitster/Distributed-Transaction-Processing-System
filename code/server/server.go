@@ -105,9 +105,9 @@ func (s *KVServer) RecoverFromLog() error {
 		}
 	}
 
-	// for txnId := range s.prepare_log {
-	// 	go s.PostPrepare(txnId)
-	// }
+	for txnId := range s.prepare_log {
+		go s.PostPrepare(txnId)
+	}
 
 	return scanner.Err()
 }
@@ -227,6 +227,7 @@ func (s *KVServer) Prepare(ctx context.Context, req *proto.PrepareRequest) (*pro
 }
 
 func (s *KVServer) PostPrepare(txnId string) {
+	time.Sleep(10 * time.Second)
 	status := s.queryCoordinator(txnId)
 
 	if status == "COMMITTED" {
@@ -292,6 +293,8 @@ func (s *KVServer) queryBackendsForTxnStatus(txnId string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	log.Printf("Initiated Query Backends for txn id: %s", txnId)
+
 	resultCh := make(chan string, len(s.peerAddresses))
 
 	for _, addr := range s.peerAddresses {
@@ -347,6 +350,8 @@ func (s *KVServer) queryBackendsForTxnStatus(txnId string) string {
 func (s *KVServer) queryCoordinator(txnId string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
+	log.Printf("Initiated Query Coordinator for txn id: %s", txnId)
 
 	conn, err := grpc.Dial(s.coordinatorAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -434,7 +439,7 @@ func (s *KVServer) Abort(ctx context.Context, req *proto.AbortRequest) (*proto.A
 		delete(s.prepare_log, txnId)
 		log.Printf("ABORT: Successfully aborted transaction %s", txnId)
 	} else {
-		log.Printf("ABORT: Transaction %s not found in prepare_log", txnId)
+		log.Printf("ABORT: Transaction %s not found in prepare_log. No issues.", txnId)
 	}
 
 	return &proto.Ack{Success: true}, nil

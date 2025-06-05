@@ -109,10 +109,9 @@ func (c *Coordinator) AckTxn(ctx context.Context, req *proto.AckTxnRequest) (*pr
 
 	c.TxnMu.Lock()
 	defer c.TxnMu.Unlock()
-	log.Printf("AckTxn: Acquired transaction mutex for ID: %s", req.TxnId)
+	log.Printf("AckTxn: Acquired read lock on transaction mutex for ID: %s", req.TxnId)
 
 	txnId := req.TxnId
-
 	txn, ok := c.TxnMap[txnId]
 	if !ok {
 		log.Printf("AckTxn: Transaction %s not found in transaction map", txnId)
@@ -124,42 +123,7 @@ func (c *Coordinator) AckTxn(ctx context.Context, req *proto.AckTxnRequest) (*pr
 		return &proto.CoordAck{Success: false}, nil
 	}
 
-	log.Printf("AckTxn: Client acknowledged committed transaction %s", txnId)
-	delete(c.TxnMap, txnId)
-	log.Printf("AckTxn: Removed transaction %s from transaction map", txnId)
-
-	// Remove txn from log
-	log.Printf("AckTxn: Attempting to remove transaction %s from log file: %s", txnId, c.logPath)
-	data, err := os.ReadFile(c.logPath)
-	if err != nil {
-		log.Printf("AckTxn: Failed to read log file %s for cleanup: %v", c.logPath, err)
-		return &proto.CoordAck{Success: false}, nil
-	}
-	log.Printf("AckTxn: Successfully read log file, size: %d bytes", len(data))
-
-	lines := strings.Split(string(data), "\n")
-	var updated []string
-	removedCount := 0
-
-	for _, line := range lines {
-		// Match lines like: "Transaction abc123: COMMITTED"
-		if !strings.Contains(line, fmt.Sprintf("Transaction %s:", txnId)) {
-			updated = append(updated, line)
-		} else {
-			removedCount++
-			log.Printf("AckTxn: Removing log line for transaction %s: %s", txnId, line)
-		}
-	}
-
-	log.Printf("AckTxn: Removed %d log entries for transaction %s", removedCount, txnId)
-
-	err = os.WriteFile(c.logPath, []byte(strings.Join(updated, "\n")), 0644)
-	if err != nil {
-		log.Printf("AckTxn: Failed to write updated log after removing transaction %s: %v", txnId, err)
-	} else {
-		log.Printf("AckTxn: Successfully updated log file after removing transaction %s", txnId)
-	}
-
+	log.Printf("AckTxn: Acknowledgment received for committed transaction %s", txnId)
 	return &proto.CoordAck{Success: true}, nil
 }
 
@@ -619,6 +583,11 @@ func (c *Coordinator) LogToFile(entry string) error {
 	bytesWritten, err := file.WriteString(entry)
 	if err != nil {
 		log.Printf("LogToFile: Failed to write entry to log file: %v", err)
+		return err
+	}
+
+	if err := file.Sync(); err != nil {
+		log.Printf("LogToFile: Failed to sync log file: %v", err)
 		return err
 	}
 
