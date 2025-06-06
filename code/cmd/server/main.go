@@ -34,7 +34,6 @@ func main() {
 		log.Fatal("Usage: go run main.go --config path/to/config.json --backend backend0")
 	}
 
-	// Load config file
 	file, err := os.Open(configPath)
 	if err != nil {
 		log.Fatalf("Failed to open config file: %v", err)
@@ -51,7 +50,6 @@ func main() {
 		log.Fatalf("Backend %s not found in config", backendID)
 	}
 
-	// Gather all peer addresses
 	var peerAddresses []string
 	for _, addr := range cfg.BackendMap {
 		peerAddresses = append(peerAddresses, addr)

@@ -20,7 +20,6 @@ type Client struct {
 	clientAddr      string
 	server          *grpc.Server
 
-	// Track transaction status updates
 	txnStatusMu   sync.RWMutex
 	txnStatus     map[string]string
 	txnStatusChan map[string]chan string
@@ -257,66 +256,3 @@ func (c *Client) ExecuteTransactionWithWait(txnID, operation string, accounts []
 
 	return status, nil
 }
-
-// func (c *Client) ExampleTransfer() {
-// 	txnID := fmt.Sprintf("txn_%d", time.Now().UnixNano())
-
-// 	log.Printf("Starting transfer transaction %s", txnID)
-
-// 	status, err := c.ExecuteTransactionWithWait(
-// 		txnID,
-// 		"transfer",
-// 		[]string{"alice", "bob"},
-// 		100,
-// 		30*time.Second,
-// 	)
-
-// 	if err != nil {
-// 		log.Printf("Transfer failed: %v", err)
-// 		return
-// 	}
-
-// 	log.Printf("Transfer transaction %s completed with status: %s", txnID, status)
-// }
-
-// func (c *Client) ExampleCredit() {
-// 	txnID := fmt.Sprintf("credit_%d", time.Now().UnixNano())
-
-// 	log.Printf("Starting credit transaction %s", txnID)
-
-// 	status, err := c.ExecuteTransactionWithWait(
-// 		txnID,
-// 		"credit",
-// 		[]string{"alice"},
-// 		500,
-// 		30*time.Second,
-// 	)
-
-// 	if err != nil {
-// 		log.Printf("Credit failed: %v", err)
-// 		return
-// 	}
-
-// 	log.Printf("Credit transaction %s completed with status: %s", txnID, status)
-// }
-
-// func (c *Client) ExampleDebit() {
-// 	txnID := fmt.Sprintf("debit_%d", time.Now().UnixNano())
-
-// 	log.Printf("Starting debit transaction %s", txnID)
-
-// 	status, err := c.ExecuteTransactionWithWait(
-// 		txnID,
-// 		"debit",
-// 		[]string{"bob"},
-// 		200,
-// 		30*time.Second,
-// 	)
-
-// 	if err != nil {
-// 		log.Printf("Debit failed: %v", err)
-// 		return
-// 	}
-
-// 	log.Printf("Debit transaction %s completed with status: %s", txnID, status)
-// }

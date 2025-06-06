@@ -29,7 +29,6 @@ func main() {
 		log.Fatal("Please provide the path to config.json using --config")
 	}
 
-	// Load config.json
 	file, err := os.Open(configPath)
 	if err != nil {
 		log.Fatalf("Failed to open config file: %v", err)
@@ -41,7 +40,6 @@ func main() {
 		log.Fatalf("Failed to decode config.json: %v", err)
 	}
 
-	// Start gRPC server on coordinator address from config
 	lis, err := net.Listen("tcp", cfg.Coordinator)
 	if err != nil {
 		log.Fatalf("Failed to listen on %s: %v", cfg.Coordinator, err)
@@ -50,12 +48,11 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 
-	// Instantiate the coordinator with JSON path and internal settings
 	coord, err := coordinator.NewCoordinator(
-		configPath,        // path to config.json
-		"coordinator.log", // log file path
-		5*time.Second,     // txn timeout
-		100,               // max number of pending txns
+		configPath,
+		"coordinator.log",
+		5*time.Second,
+		100,
 	)
 	if err != nil {
 		log.Fatalf("Failed to create coordinator: %v", err)
