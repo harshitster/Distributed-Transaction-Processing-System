@@ -61,7 +61,7 @@ func (c *Coordinator) hasTxnCommittedInLog(txnId string) bool {
 	return false
 }
 
-func (c *Coordinator) RecoverTxnLog() *Transaction {
+func (c *Coordinator) RecoverTxnLog() []*Transaction {
 	log.Printf("RecoverTxnLog: Starting transaction log recovery from file: %s", c.logPath)
 
 	file, err := os.Open(c.logPath)
@@ -108,15 +108,18 @@ func (c *Coordinator) RecoverTxnLog() *Transaction {
 
 	log.Printf("RecoverTxnLog: Processed %d log lines, found %d unique transactions", lineCount, len(txnMap))
 
+	var toRecover []*Transaction
 	for txnId, txn := range txnMap {
 		if txn.Status == TxnPrepared || txn.Status == TxnPending {
 			log.Printf("RecoverTxnLog: Found transaction %s requiring recovery with status %s", txnId, txn.Status)
 			c.TxnMap[txn.ID] = txn
 			log.Printf("RecoverTxnLog: Added transaction %s to coordinator's transaction map", txnId)
-			return txn
+			toRecover = append(toRecover, txn)
 		}
 	}
 
-	log.Printf("RecoverTxnLog: No transactions found requiring recovery")
-	return nil
+	if len(toRecover) == 0 {
+		log.Printf("RecoverTxnLog: No transactions found requiring recovery")
+	}
+	return toRecover
 }

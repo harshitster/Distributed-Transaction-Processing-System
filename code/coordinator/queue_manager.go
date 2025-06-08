@@ -13,9 +13,11 @@ func (c *Coordinator) QueueWorker() {
 	log.Printf("QueueWorker: Starting queue worker")
 
 	recovered := c.RecoverTxnLog()
-	if recovered != nil {
-		log.Printf("QueueWorker: Processing recovered transaction %s", recovered.ID)
-		c.ProcessTransaction(recovered)
+	if len(recovered) > 0 {
+		for _, txn := range recovered {
+			log.Printf("QueueWorker: Processing recovered transaction %s", txn.ID)
+			c.ProcessTransaction(txn)
+		}
 	} else {
 		log.Printf("QueueWorker: No transactions to recover")
 	}
