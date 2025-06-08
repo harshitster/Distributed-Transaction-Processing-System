@@ -1,1 +1,1 @@
-# 223B-Project
+# Distributed Transaction Processing System
