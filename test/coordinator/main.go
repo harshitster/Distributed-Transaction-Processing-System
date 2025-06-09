@@ -167,7 +167,68 @@ func (c *Coordinator) AckTxn(ctx context.Context, req *proto.AckTxnRequest) (*pr
 }
 
 // Load transactions in progress from log file: only one txn will be prepare or pending
-func (c *Coordinator) RecoverTxnLog() *Transaction {
+// func (c *Coordinator) RecoverTxnLog() *Transaction {
+// 	log.Printf("RecoverTxnLog: Starting transaction log recovery from file: %s", c.logPath)
+
+// 	file, err := os.Open(c.logPath)
+// 	if err != nil {
+// 		log.Printf("RecoverTxnLog: Failed to open log file %s: %v", c.logPath, err)
+// 		return nil
+// 	}
+// 	defer file.Close()
+// 	log.Printf("RecoverTxnLog: Successfully opened log file for reading")
+
+// 	scanner := bufio.NewScanner(file)
+// 	txnMap := make(map[string]*Transaction)
+// 	lineCount := 0
+
+// 	for scanner.Scan() {
+// 		lineCount++
+// 		line := scanner.Text()
+// 		log.Printf("RecoverTxnLog: Processing log line %d: %s", lineCount, line)
+
+// 		fields := strings.Fields(line)
+// 		if len(fields) < 3 {
+// 			log.Printf("RecoverTxnLog: Skipping malformed line %d (insufficient fields): %s", lineCount, line)
+// 			continue
+// 		}
+
+// 		txnId := fields[1]
+// 		status := fields[2]
+
+// 		txn := txnMap[txnId]
+// 		if txn == nil {
+// 			txn = &Transaction{ID: txnId}
+// 			txnMap[txnId] = txn
+// 			log.Printf("RecoverTxnLog: Created new transaction object for ID: %s", txnId)
+// 		}
+
+// 		txn.Status = TxnStatus(status)
+// 		log.Printf("RecoverTxnLog: Set transaction %s status to %s", txnId, status)
+// 	}
+
+// 	if err := scanner.Err(); err != nil {
+// 		log.Printf("RecoverTxnLog: Error reading log file: %v", err)
+// 		return nil
+// 	}
+
+// 	log.Printf("RecoverTxnLog: Processed %d log lines, found %d unique transactions", lineCount, len(txnMap))
+
+// 	// Look for transactions that need recovery
+// 	for txnId, txn := range txnMap {
+// 		if txn.Status == TxnPrepared || txn.Status == TxnPending {
+// 			log.Printf("RecoverTxnLog: Found transaction %s requiring recovery with status %s", txnId, txn.Status)
+// 			c.TxnMap[txn.ID] = txn
+// 			log.Printf("RecoverTxnLog: Added transaction %s to coordinator's transaction map", txnId)
+// 			return txn
+// 		}
+// 	}
+
+// 	log.Printf("RecoverTxnLog: No transactions found requiring recovery")
+// 	return nil
+// }
+
+func (c *Coordinator) RecoverTxnLog() []*Transaction {
 	log.Printf("RecoverTxnLog: Starting transaction log recovery from file: %s", c.logPath)
 
 	file, err := os.Open(c.logPath)
@@ -214,18 +275,20 @@ func (c *Coordinator) RecoverTxnLog() *Transaction {
 
 	log.Printf("RecoverTxnLog: Processed %d log lines, found %d unique transactions", lineCount, len(txnMap))
 
-	// Look for transactions that need recovery
+	var toRecover []*Transaction
 	for txnId, txn := range txnMap {
 		if txn.Status == TxnPrepared || txn.Status == TxnPending {
 			log.Printf("RecoverTxnLog: Found transaction %s requiring recovery with status %s", txnId, txn.Status)
 			c.TxnMap[txn.ID] = txn
 			log.Printf("RecoverTxnLog: Added transaction %s to coordinator's transaction map", txnId)
-			return txn
+			toRecover = append(toRecover, txn)
 		}
 	}
 
-	log.Printf("RecoverTxnLog: No transactions found requiring recovery")
-	return nil
+	if len(toRecover) == 0 {
+		log.Printf("RecoverTxnLog: No transactions found requiring recovery")
+	}
+	return toRecover
 }
 
 // Append to queue file instead of saving full queue
@@ -348,6 +411,30 @@ func (c *Coordinator) RemoveTxnFromQueueFile(txnId string, queuePath string) err
 	return err
 }
 
+// func (c *Coordinator) hasTxnCommittedInLog(txnId string) bool {
+// 	log.Printf("hasTxnCommittedInLog: Checking if transaction %s is committed in log", txnId)
+
+// 	data, err := os.ReadFile(c.logPath)
+// 	if err != nil {
+// 		log.Printf("hasTxnCommittedInLog: Failed to read log file %s: %v", c.logPath, err)
+// 		return false
+// 	}
+// 	log.Printf("hasTxnCommittedInLog: Successfully read log file, size: %d bytes", len(data))
+
+// 	lines := strings.Split(string(data), "\n")
+// 	commitPrefix := "Transaction " + txnId + ": COMMITTED"
+
+// 	for i, line := range lines {
+// 		if strings.HasPrefix(line, commitPrefix) {
+// 			log.Printf("hasTxnCommittedInLog: Found committed transaction %s at line %d: %s", txnId, i+1, line)
+// 			return true
+// 		}
+// 	}
+
+// 	log.Printf("hasTxnCommittedInLog: Transaction %s not found as committed in log", txnId)
+// 	return false
+// }
+
 func (c *Coordinator) hasTxnCommittedInLog(txnId string) bool {
 	log.Printf("hasTxnCommittedInLog: Checking if transaction %s is committed in log", txnId)
 
@@ -398,13 +485,91 @@ func sendAckToClient(addr, txnId, status string) error {
 	return err
 }
 
+// func (c *Coordinator) QueueWorker() {
+// 	log.Printf("QueueWorker: Starting queue worker")
+
+// 	recovered := c.RecoverTxnLog()
+// 	if recovered != nil {
+// 		log.Printf("QueueWorker: Processing recovered transaction %s", recovered.ID)
+// 		c.ProcessTransaction(recovered)
+// 	} else {
+// 		log.Printf("QueueWorker: No transactions to recover")
+// 	}
+
+// 	log.Printf("QueueWorker: Entering main processing loop")
+// 	for {
+// 		c.QueueMu.Lock()
+// 		queueLength := len(c.TxnQueue)
+
+// 		if queueLength == 0 {
+// 			c.QueueMu.Unlock()
+// 			// log.Printf("QueueWorker: Queue is empty, sleeping for 100ms")
+// 			time.Sleep(100 * time.Millisecond)
+// 			continue
+// 		}
+
+// 		txn := c.TxnQueue[0]
+// 		c.TxnQueue = c.TxnQueue[1:]
+// 		c.QueueMu.Unlock()
+
+// 		log.Printf("QueueWorker: Dequeued transaction %s (remaining queue length: %d)", txn.ID, queueLength-1)
+
+// 		if c.hasTxnCommittedInLog(txn.ID) {
+// 			log.Printf("QueueWorker: Transaction %s already committed, sending commit ACK to %s", txn.ID, txn.ClientAddr)
+// 			if err := sendAckToClient(txn.ClientAddr, txn.ID, "COMMITTED"); err != nil {
+// 				log.Printf("QueueWorker: Failed to send commit ACK for transaction %s: %v", txn.ID, err)
+// 			}
+// 			continue
+// 		}
+
+// 		if txn.Status == TxnPrepared {
+// 			log.Printf("QueueWorker: Transaction %s is still in PREPARE state, discarding duplicate", txn.ID)
+// 			continue
+// 		}
+
+// 		log.Printf("QueueWorker: Processing transaction %s with status %v", txn.ID, txn.Status)
+// 		err := c.ProcessTransaction(txn)
+
+// 		if err == nil && txn.Status == TxnCommitted {
+// 			log.Printf("QueueWorker: Transaction %s committed successfully, sending ACK to client %s", txn.ID, txn.ClientAddr)
+// 			if TEST_MODE && PAUSE_AT_C6 {
+// 				log.Printf("TEST HOOK C6: Pausing after CommitPhase success, before sending ACK to client... sleeping %d ms", TEST_SLEEP_MS)
+// 				time.Sleep(time.Duration(TEST_SLEEP_MS) * time.Millisecond)
+// 			}
+// 			if ackErr := sendAckToClient(txn.ClientAddr, txn.ID, "COMMITTED"); ackErr != nil {
+// 				log.Printf("QueueWorker: Failed to send commit ACK for transaction %s: %v", txn.ID, ackErr)
+// 			}
+// 		} else {
+// 			// Transaction failed or was aborted
+// 			if err != nil {
+// 				log.Printf("QueueWorker: Transaction %s processing failed: %v", txn.ID, err)
+// 			}
+
+// 			// Send failure notification to client
+// 			log.Printf("QueueWorker: Transaction %s aborted, sending ABORTED ACK to client %s", txn.ID, txn.ClientAddr)
+// 			if ackErr := sendAckToClient(txn.ClientAddr, txn.ID, "ABORTED"); ackErr != nil {
+// 				log.Printf("QueueWorker: Failed to send abort ACK for transaction %s: %v", txn.ID, ackErr)
+// 			} else {
+// 				log.Printf("QueueWorker: Successfully sent ABORTED notification to client for transaction %s", txn.ID)
+// 			}
+// 		}
+
+// 		log.Printf("QueueWorker: Removing transaction %s from queue file", txn.ID)
+// 		if removeErr := c.RemoveTxnFromQueueFile(txn.ID, "queue.json"); removeErr != nil {
+// 			log.Printf("QueueWorker: Failed to remove transaction %s from queue file: %v", txn.ID, removeErr)
+// 		}
+// 	}
+// }
+
 func (c *Coordinator) QueueWorker() {
 	log.Printf("QueueWorker: Starting queue worker")
 
 	recovered := c.RecoverTxnLog()
-	if recovered != nil {
-		log.Printf("QueueWorker: Processing recovered transaction %s", recovered.ID)
-		c.ProcessTransaction(recovered)
+	if len(recovered) > 0 {
+		for _, txn := range recovered {
+			log.Printf("QueueWorker: Processing recovered transaction %s", txn.ID)
+			c.ProcessTransaction(txn)
+		}
 	} else {
 		log.Printf("QueueWorker: No transactions to recover")
 	}
@@ -416,7 +581,6 @@ func (c *Coordinator) QueueWorker() {
 
 		if queueLength == 0 {
 			c.QueueMu.Unlock()
-			// log.Printf("QueueWorker: Queue is empty, sleeping for 100ms")
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
@@ -445,20 +609,14 @@ func (c *Coordinator) QueueWorker() {
 
 		if err == nil && txn.Status == TxnCommitted {
 			log.Printf("QueueWorker: Transaction %s committed successfully, sending ACK to client %s", txn.ID, txn.ClientAddr)
-			if TEST_MODE && PAUSE_AT_C6 {
-				log.Printf("TEST HOOK C6: Pausing after CommitPhase success, before sending ACK to client... sleeping %d ms", TEST_SLEEP_MS)
-				time.Sleep(time.Duration(TEST_SLEEP_MS) * time.Millisecond)
-			}
 			if ackErr := sendAckToClient(txn.ClientAddr, txn.ID, "COMMITTED"); ackErr != nil {
 				log.Printf("QueueWorker: Failed to send commit ACK for transaction %s: %v", txn.ID, ackErr)
 			}
 		} else {
-			// Transaction failed or was aborted
 			if err != nil {
 				log.Printf("QueueWorker: Transaction %s processing failed: %v", txn.ID, err)
 			}
 
-			// Send failure notification to client
 			log.Printf("QueueWorker: Transaction %s aborted, sending ABORTED ACK to client %s", txn.ID, txn.ClientAddr)
 			if ackErr := sendAckToClient(txn.ClientAddr, txn.ID, "ABORTED"); ackErr != nil {
 				log.Printf("QueueWorker: Failed to send abort ACK for transaction %s: %v", txn.ID, ackErr)
@@ -473,7 +631,6 @@ func (c *Coordinator) QueueWorker() {
 		}
 	}
 }
-
 func (c *Coordinator) ChannelWorker() {
 	log.Printf("ChannelWorker: Starting channel worker to process incoming transactions")
 
@@ -607,6 +764,36 @@ func (c *Coordinator) LoadBinMappingConfig(path string) error {
 
 	return nil
 }
+
+// func (c *Coordinator) LogToFile(entry string) error {
+// 	log.Printf("LogToFile: Attempting to log entry to file %s: %s", c.logPath, strings.TrimSpace(entry))
+
+// 	c.logMu.Lock()
+// 	defer c.logMu.Unlock()
+// 	log.Printf("LogToFile: Acquired log file mutex")
+
+// 	file, err := os.OpenFile(c.logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+// 	if err != nil {
+// 		log.Printf("LogToFile: Failed to open log file %s: %v", c.logPath, err)
+// 		return err
+// 	}
+// 	defer file.Close()
+// 	log.Printf("LogToFile: Successfully opened log file for writing")
+
+// 	bytesWritten, err := file.WriteString(entry)
+// 	if err != nil {
+// 		log.Printf("LogToFile: Failed to write entry to log file: %v", err)
+// 		return err
+// 	}
+
+// 	if err := file.Sync(); err != nil {
+// 		log.Printf("LogToFile: Failed to sync log file: %v", err)
+// 		return err
+// 	}
+
+// 	log.Printf("LogToFile: Successfully wrote %d bytes to log file %s", bytesWritten, c.logPath)
+// 	return nil
+// }
 
 func (c *Coordinator) LogToFile(entry string) error {
 	log.Printf("LogToFile: Attempting to log entry to file %s: %s", c.logPath, strings.TrimSpace(entry))
