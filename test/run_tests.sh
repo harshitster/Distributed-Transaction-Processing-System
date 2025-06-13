@@ -17,14 +17,20 @@ CLIENT_ADDR=$(jq -r '.client_address' "$CONFIG_FILE"
 BACKENDS=$(jq -r '.backend_map | keys[]' "$CONFIG_FILE")
 
 # Helper to start coordinator
+# start_coordinator() {
+#     echo "Starting Coordinator..." | tee -a "$RESULT_LOG"
+#     TEST_MODE=true TEST_SLEEP_MS=$2 $1 go run $TEST_COORD_BIN --config "$CONFIG_FILE" > "$LOG_DIR/coordinator.log" 2>&1 &
+#     COORD_PID=$!
+#     echo "Coordinator PID: $COORD_PID" | tee -a "$RESULT_LOG"
+#     sleep 2
+# }
 start_coordinator() {
-    echo "Starting Coordinator..." | tee -a "$RESULT_LOG"
-    TEST_MODE=true TEST_SLEEP_MS=$2 $1 go run $TEST_COORD_BIN --config "$CONFIG_FILE" > "$LOG_DIR/coordinator.log" 2>&1 &
+    local sleep_ms=$1
+    shift
+    echo "Starting Coordinator with TEST_SLEEP_MS=${sleep_ms} and extra env vars: $@"
+    env TEST_MODE=true TEST_SLEEP_MS=${sleep_ms} "$@" go run $TEST_COORD_BIN --config "$CONFIG_FILE" > "$LOG_DIR/coordinator.log" 2>&1 &
     COORD_PID=$!
-    echo "Coordinator PID: $COORD_PID" | tee -a "$RESULT_LOG"
-    sleep 2
 }
-
 # Helper to stop coordinator
 stop_coordinator() {
     echo "Stopping Coordinator PID $COORD_PID" | tee -a "$RESULT_LOG"
@@ -68,34 +74,47 @@ echo "2PC C1-C7 Test Run - $(date)" > "$RESULT_LOG"
 echo "==========================" >> "$RESULT_LOG"
 echo "" >> "$RESULT_LOG"
 
-# Start backends
-start_backends
+# # Start backends
+# start_backends
 
 ######################################
 # C1 - Normal Transaction
 ######################################
-start_coordinator "" 5000
+start_coordinator 5000
+start_backends
 run_client_txn "C1 - Normal Transaction" \
-    "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 10"
+    "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR credit A 10"
 stop_coordinator
-
-# ######################################
-# # C2 - Crash after sending Prepare
-# ######################################
-# start_coordinator "PAUSE_AT_C2=true" 5000
-# run_client_txn "C2 - Crash after sending Prepare" \
-#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer C D 15 &"
-# CLIENT_PID=$!
-# sleep 3
-# stop_coordinator
-# wait $CLIENT_PID
-# start_coordinator "" 5000
-# sleep 5
-# stop_coordinator
-
+stop_backends
+sudo lsof -t -iTCP:8000 -sTCP:LISTEN | xargs -r sudo kill -9
+sudo lsof -t -iTCP:8001 -sTCP:LISTEN | xargs -r sudo kill -9
+sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
+sudo lsof -t -iTCP:9090 -sTCP:LISTEN | xargs -r sudo kill -9
+######################################
+# C2 - Crash after sending Prepare
+######################################
+start_coordinator 8000 PAUSE_AT_C2=true
+start_backends
+sleep 2
+run_client_txn "C2 - Crash after sending Prepare" \
+    "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 10 &"
+CLIENT_PID=$!
+sleep 3
+stop_coordinator
+sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
+wait $CLIENT_PID
+start_coordinator 5000
+sleep 8
+stop_coordinator
+stop_backends
+sudo lsof -t -iTCP:8000 -sTCP:LISTEN | xargs -r sudo kill -9
+sudo lsof -t -iTCP:8001 -sTCP:LISTEN | xargs -r sudo kill -9
+sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
+sudo lsof -t -iTCP:9090 -sTCP:LISTEN | xargs -r sudo kill -9
 # ######################################
 # # C3 - Crash after Prepare ACKs received but before Commit
 # ######################################
+# start_backends
 # start_coordinator "PAUSE_AT_C3=true" 5000
 # run_client_txn "C3 - Crash after Prepare ACKs but before Commit" \
 #     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer E F 20 &"
@@ -106,10 +125,11 @@ stop_coordinator
 # start_coordinator "" 5000
 # sleep 5
 # stop_coordinator
-
+# stop_backends
 # ######################################
 # # C4 - Crash after TxnPrepared log written
 # ######################################
+# start_backends
 # start_coordinator "PAUSE_AT_C4=true" 5000
 # run_client_txn "C4 - Crash after writing TxnPrepared" \
 #     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer G H 25 &"
@@ -120,10 +140,11 @@ stop_coordinator
 # start_coordinator "" 5000
 # sleep 5
 # stop_coordinator
-
+# stop_backends
 # ######################################
 # # C5 - Crash after some Commit sent
 # ######################################
+# start_backends
 # start_coordinator "PAUSE_AT_C5=true" 5000
 # run_client_txn "C5 - Crash after some Commit sent" \
 #     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer I J 30 &"
@@ -134,10 +155,11 @@ stop_coordinator
 # start_coordinator "" 5000
 # sleep 5
 # stop_coordinator
-
+# stop_backends
 # ######################################
 # # C6 - Crash after full Commit but before client ACK
 # ######################################
+# start_backends
 # start_coordinator "PAUSE_AT_C6=true" 5000
 # run_client_txn "C6 - Crash after full Commit but before client ACK" \
 #     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer K L 35 &"
@@ -148,10 +170,11 @@ stop_coordinator
 # start_coordinator "" 5000
 # sleep 5
 # stop_coordinator
-
+# stop_backends
 # ######################################
 # # C7 - Normal Commit with delayed client ACK
 # ######################################
+# start_backends
 # start_coordinator "" 5000
 # run_client_txn "C7 - Normal Commit with delayed client ACK" \
 #     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer M N 40"
