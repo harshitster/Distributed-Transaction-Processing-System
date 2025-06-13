@@ -139,12 +139,37 @@ func handleTransfer(c *client.Client, args []string) {
 		txnID,
 		"transfer",
 		[]string{args[0], args[1]},
-		int32(amount), // Convert to int32
-		30*time.Second,
+		int32(amount),
+		60*time.Second,
 	)
 
-	if err != nil {
-		log.Printf("Transfer failed: %v", err)
+	if err != nil || (status != "COMMITTED" && status != "ABORTED") {
+		log.Printf("Initial execution returned: %s (err: %v), falling back to polling...", status, err)
+
+		for i := 0; i < 10; i++ {
+			status, err := c.GetTransactionStatus(txnID)
+			if err != nil {
+				log.Printf("Status check failed: %v", err)
+				time.Sleep(1 * time.Second)
+				continue
+			}
+
+			fmt.Printf("Status[%d]: %s\n", i+1, status)
+			switch status {
+			case "COMMITTED":
+				if err := c.AcknowledgeTransaction(txnID); err != nil {
+					log.Printf("Acknowledgement failed: %v", err)
+				} else {
+					fmt.Println("Transaction acknowledged")
+				}
+				return
+			case "ABORTED":
+				fmt.Println("Transaction aborted")
+				return
+			}
+			time.Sleep(1 * time.Second)
+		}
+		fmt.Println("Status polling timed out")
 	} else {
 		fmt.Printf("Transfer completed. Status: %s\n", status)
 	}
@@ -168,8 +193,33 @@ func handleCredit(c *client.Client, args []string) {
 		30*time.Second,
 	)
 
-	if err != nil {
-		log.Printf("Credit failed: %v", err)
+	if err != nil || (status != "COMMITTED" && status != "ABORTED") {
+		log.Printf("Initial execution returned: %s (err: %v), falling back to polling...", status, err)
+
+		for i := 0; i < 10; i++ {
+			status, err := c.GetTransactionStatus(txnID)
+			if err != nil {
+				log.Printf("Status check failed: %v", err)
+				time.Sleep(1 * time.Second)
+				continue
+			}
+
+			fmt.Printf("Status[%d]: %s\n", i+1, status)
+			switch status {
+			case "COMMITTED":
+				if err := c.AcknowledgeTransaction(txnID); err != nil {
+					log.Printf("Acknowledgement failed: %v", err)
+				} else {
+					fmt.Println("Transaction acknowledged")
+				}
+				return
+			case "ABORTED":
+				fmt.Println("Transaction aborted")
+				return
+			}
+			time.Sleep(1 * time.Second)
+		}
+		fmt.Println("Status polling timed out")
 	} else {
 		fmt.Printf("Credit completed. Status: %s\n", status)
 	}
@@ -193,13 +243,37 @@ func handleDebit(c *client.Client, args []string) {
 		30*time.Second,
 	)
 
-	if err != nil {
-		log.Printf("Debit failed: %v", err)
+	if err != nil || (status != "COMMITTED" && status != "ABORTED") {
+		log.Printf("Initial execution returned: %s (err: %v), falling back to polling...", status, err)
+
+		for i := 0; i < 10; i++ {
+			status, err := c.GetTransactionStatus(txnID)
+			if err != nil {
+				log.Printf("Status check failed: %v", err)
+				time.Sleep(1 * time.Second)
+				continue
+			}
+
+			fmt.Printf("Status[%d]: %s\n", i+1, status)
+			switch status {
+			case "COMMITTED":
+				if err := c.AcknowledgeTransaction(txnID); err != nil {
+					log.Printf("Acknowledgement failed: %v", err)
+				} else {
+					fmt.Println("Transaction acknowledged")
+				}
+				return
+			case "ABORTED":
+				fmt.Println("Transaction aborted")
+				return
+			}
+			time.Sleep(1 * time.Second)
+		}
+		fmt.Println("Status polling timed out")
 	} else {
 		fmt.Printf("Debit completed. Status: %s\n", status)
 	}
 }
-
 func handleManual(c *client.Client, args []string) {
 	if len(args) != 3 {
 		log.Fatal("Usage: manual <from> <to> <amount>")
