@@ -1,0 +1,17 @@
+2PC S1-S6 Test Run - Fri Jun 13 18:45:27 PDT 2025
+==========================
+
+Starting backend backend0 with TEST_SLEEP_MS=5000 and extra env vars: PAUSE_AT_S6=true
+Starting backend backend1 with TEST_SLEEP_MS=5000 and extra env vars: PAUSE_AT_S6=true
+>>> TEST: S6 - Backend crash after Abort written
+Command: go run ./code/cmd/client/main.go -coordinator=127.0.0.1:9000 -client=127.0.0.1:9090 transfer A B 999999 &
+<<< END TEST
+
+2025/06/13 18:45:32 Client server listening on 127.0.0.1:9090
+2025/06/13 18:45:33 Transaction transfer_1749865533637543854 submitted successfully
+Stopping backends...
+2025/06/13 18:45:37 Received transaction status update: transfer_1749865533637543854 = ABORTED
+Transfer completed. Status: ABORTED
+Starting backend backend0 with TEST_SLEEP_MS= and extra env vars: 
+Starting backend backend1 with TEST_SLEEP_MS= and extra env vars: 
+Stopping backends...

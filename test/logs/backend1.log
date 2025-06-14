@@ -1,0 +1,5 @@
+2025/06/13 18:45:38 test_server.go: Main started
+2025/06/13 18:45:38 Using config file: ./test/test_config.json
+2025/06/13 18:45:38 Using backend ID: backend1
+2025/06/13 18:45:38 Recovery from log completed.
+2025/06/13 18:45:38 KVServer gRPC server for backend1 listening on 127.0.0.1:8001

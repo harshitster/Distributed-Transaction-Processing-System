@@ -1,0 +1,18 @@
+2PC C1-C7 Test Run - Fri Jun 13 18:38:06 PDT 2025
+==========================
+
+Starting backend backend0...
+Starting backend backend1...
+Starting backend backend0...
+Starting backend backend1...
+>>> TEST: C1 - Normal Transaction
+Command: go run ./code/cmd/client/main.go -coordinator=127.0.0.1:9000 -client=127.0.0.1:9090 credit A 10
+2025/06/13 18:38:12 Client server listening on 127.0.0.1:9090
+2025/06/13 18:38:13 Transaction credit_1749865093061981288 submitted successfully
+2025/06/13 18:38:13 Received transaction status update: credit_1749865093061981288 = COMMITTED
+2025/06/13 18:38:13 Transaction credit_1749865093061981288 acknowledged successfully
+Credit completed. Status: COMMITTED
+<<< END TEST
+
+Stopping Coordinator PID 37547
+Stopping backends...

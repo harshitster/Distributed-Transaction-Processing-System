@@ -112,13 +112,13 @@ start_coordinator 5000
 # stop_backends
 # cleanup_ports
 
-# ######################################
-# # S2 - Backend crash after Prepare written but before ACK sent
-# ######################################
+######################################
+# S2 - Backend crash after Prepare written but before ACK sent
+######################################
 # start_backends 11000 PAUSE_AT_S2=true
 # sleep 2
 # run_client_txn "S2 - Backend crash after Prepare written but before ACK" \
-#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer B A 10 &"
+#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 10 &"
 # CLIENT_PID=$!
 # sleep 3
 # stop_backends
@@ -129,9 +129,9 @@ start_coordinator 5000
 # stop_backends
 # cleanup_ports
 
-# ######################################
-# # S3 - Backend crash after Prepare ACK, before Commit
-# ######################################
+######################################
+# S3 - Backend crash after Prepare ACK, before Commit
+######################################
 # start_backends
 # sleep 2
 # run_client_txn "S3 - Backend crash after Prepare ACK before Commit" \
@@ -166,27 +166,10 @@ start_coordinator 5000
 # ######################################
 # # S5 - Backend crash after Commit fully done
 # ######################################
-start_backends 5000 PAUSE_AT_S5=true
-sleep 20    
-run_client_txn "S5 - Backend crash after Commit fully done" \
-    "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer B A 10 &"
-CLIENT_PID=$!
-sleep 3
-stop_backends
-cleanup_ports
-wait $CLIENT_PID
-start_backends
-sleep 5
-stop_backends
-cleanup_ports
-
-# ######################################
-# # S6 - Backend crash after Abort written
-# ######################################
-# start_backends 5000 PAUSE_AT_S6=true
-# sleep 2
-# run_client_txn "S6 - Backend crash after Abort written" \
-#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 999999 &"
+# start_backends 5000 PAUSE_AT_S5=true
+# sleep 20    
+# run_client_txn "S5 - Backend crash after Commit fully done" \
+#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 10 &"
 # CLIENT_PID=$!
 # sleep 3
 # stop_backends
@@ -196,6 +179,23 @@ cleanup_ports
 # sleep 5
 # stop_backends
 # cleanup_ports
+
+######################################
+# S6 - Backend crash after Abort written
+######################################
+start_backends 5000 PAUSE_AT_S6=true
+sleep 2
+run_client_txn "S6 - Backend crash after Abort written" \
+    "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 999999 &"
+CLIENT_PID=$!
+sleep 3
+stop_backends
+cleanup_ports
+wait $CLIENT_PID
+start_backends
+sleep 5
+stop_backends
+cleanup_ports
 
 # ######################################
 # # Final cleanup of ports after all tests

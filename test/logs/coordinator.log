@@ -1,0 +1,187 @@
+2025/06/13 18:45:28 test_coordinator.go: Main started
+2025/06/13 18:45:28 Using config file: ./test/test_config.json
+2025/06/13 18:45:28 NewCoordinator: Creating new coordinator with config - BinsJSON: ./test/test_config.json, logPath: txn.log, timeout: 10s, maxTransactions: 1000
+2025/06/13 18:45:28 NewCoordinator: Initialized coordinator struct with process channel capacity: 1000
+2025/06/13 18:45:28 NewCoordinator: Loading bin mapping configuration from ./test/test_config.json
+2025/06/13 18:45:28 LoadBinMappingConfig: Starting to load configuration from file: ./test/test_config.json
+2025/06/13 18:45:28 LoadBinMappingConfig: Successfully read config file, size: 314 bytes
+2025/06/13 18:45:28 LoadBinMappingConfig: Successfully parsed JSON configuration
+2025/06/13 18:45:28 LoadBinMappingConfig: Configuration loaded successfully from ./test/test_config.json
+2025/06/13 18:45:28 LoadBinMappingConfig: Number of bins configured: 3
+2025/06/13 18:45:28 LoadBinMappingConfig: Bin mappings loaded: 3 entries
+2025/06/13 18:45:28 LoadBinMappingConfig: Bin mapping - bin0 → 127.0.0.1:8000
+2025/06/13 18:45:28 LoadBinMappingConfig: Bin mapping - bin1 → 127.0.0.1:8000
+2025/06/13 18:45:28 LoadBinMappingConfig: Bin mapping - bin2 → 127.0.0.1:8001
+2025/06/13 18:45:28 NewCoordinator: Successfully loaded bin mapping configuration
+2025/06/13 18:45:28 NewCoordinator: Attempting to recover queue from file: queue.json
+2025/06/13 18:45:28 RecoverQueueFromFile: Starting queue recovery from file: queue.json
+2025/06/13 18:45:28 RecoverQueueFromFile: Successfully opened queue file for reading
+2025/06/13 18:45:28 RecoverQueueFromFile: Successfully recovered 0 transactions from 0 lines in queue file
+2025/06/13 18:45:28 NewCoordinator: Successfully recovered queue from file
+2025/06/13 18:45:28 NewCoordinator: Starting background workers
+2025/06/13 18:45:28 NewCoordinator: Started ChannelWorker goroutine
+2025/06/13 18:45:28 NewCoordinator: Started QueueWorker goroutine
+2025/06/13 18:45:28 NewCoordinator: Coordinator initialization completed successfully
+2025/06/13 18:45:28 ChannelWorker: Starting channel worker to process incoming transactions
+2025/06/13 18:45:28 QueueWorker: Starting queue worker
+2025/06/13 18:45:28 RecoverTxnLog: Starting transaction log recovery from file: txn.log
+2025/06/13 18:45:28 RecoverTxnLog: Successfully opened log file for reading
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 1: Transaction credit_1749865093061981288: PENDING
+2025/06/13 18:45:28 RecoverTxnLog: Created new transaction object for ID: credit_1749865093061981288:
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction credit_1749865093061981288: status to PENDING
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 2: Transaction credit_1749865093061981288: PREPARED
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction credit_1749865093061981288: status to PREPARED
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 3: Transaction credit_1749865093061981288: COMMITTED
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction credit_1749865093061981288: status to COMMITTED
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 4: Transaction credit_1749865119986872963: PENDING
+2025/06/13 18:45:28 RecoverTxnLog: Created new transaction object for ID: credit_1749865119986872963:
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction credit_1749865119986872963: status to PENDING
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 5: Transaction credit_1749865119986872963: PREPARED
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction credit_1749865119986872963: status to PREPARED
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 6: Transaction credit_1749865119986872963: COMMITTED
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction credit_1749865119986872963: status to COMMITTED
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 7: Transaction transfer_1749865184004464606: PENDING
+2025/06/13 18:45:28 RecoverTxnLog: Created new transaction object for ID: transfer_1749865184004464606:
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction transfer_1749865184004464606: status to PENDING
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 8: Transaction transfer_1749865184004464606: ABORTED
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction transfer_1749865184004464606: status to ABORTED
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 9: Transaction transfer_1749865305630650016: PENDING
+2025/06/13 18:45:28 RecoverTxnLog: Created new transaction object for ID: transfer_1749865305630650016:
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction transfer_1749865305630650016: status to PENDING
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 10: Transaction transfer_1749865305630650016: PREPARED
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction transfer_1749865305630650016: status to PREPARED
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 11: Transaction transfer_1749865305630650016: COMMITTED
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction transfer_1749865305630650016: status to COMMITTED
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 12: Transaction transfer_1749865353395952335: PENDING
+2025/06/13 18:45:28 RecoverTxnLog: Created new transaction object for ID: transfer_1749865353395952335:
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction transfer_1749865353395952335: status to PENDING
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 13: Transaction transfer_1749865353395952335: PREPARED
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction transfer_1749865353395952335: status to PREPARED
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 14: Transaction transfer_1749865353395952335: COMMITTED
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction transfer_1749865353395952335: status to COMMITTED
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 15: Transaction transfer_1749865486527375399: PENDING
+2025/06/13 18:45:28 RecoverTxnLog: Created new transaction object for ID: transfer_1749865486527375399:
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction transfer_1749865486527375399: status to PENDING
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 16: Transaction transfer_1749865486527375399: PREPARED
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction transfer_1749865486527375399: status to PREPARED
+2025/06/13 18:45:28 RecoverTxnLog: Processing log line 17: Transaction transfer_1749865486527375399: COMMITTED
+2025/06/13 18:45:28 RecoverTxnLog: Set transaction transfer_1749865486527375399: status to COMMITTED
+2025/06/13 18:45:28 RecoverTxnLog: Processed 17 log lines, found 6 unique transactions
+2025/06/13 18:45:28 RecoverTxnLog: No transactions found requiring recovery
+2025/06/13 18:45:28 QueueWorker: No transactions to recover
+2025/06/13 18:45:28 QueueWorker: Entering main processing loop
+2025/06/13 18:45:28 Coordinator gRPC server listening on 127.0.0.1:9000
+2025/06/13 18:45:33 Txn: Received transaction request - ID: transfer_1749865533637543854, Op: transfer, Amount: 999999, ClientAddr: 127.0.0.1:9090
+2025/06/13 18:45:33 Txn: Processing operation type: transfer for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 Txn: Transfer setup - from: A, to: B, amount: 999999 for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 Txn: Attempting to queue transaction transfer_1749865533637543854
+2025/06/13 18:45:33 Txn: Successfully queued transaction transfer_1749865533637543854 for processing
+2025/06/13 18:45:33 ChannelWorker: Received transaction transfer_1749865533637543854 from process channel
+2025/06/13 18:45:33 ChannelWorker: Acquired queue mutex for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 ChannelWorker: Added transaction transfer_1749865533637543854 to queue (queue length: 0 -> 1)
+2025/06/13 18:45:33 AppendTxnToQueueFile: Appending transaction transfer_1749865533637543854 to queue file: queue.json
+2025/06/13 18:45:33 AppendTxnToQueueFile: Successfully opened queue file for writing
+2025/06/13 18:45:33 AppendTxnToQueueFile: Marshaled transaction transfer_1749865533637543854 to JSON, size: 115 bytes
+2025/06/13 18:45:33 AppendTxnToQueueFile: Successfully appended transaction transfer_1749865533637543854 to queue file
+2025/06/13 18:45:33 ChannelWorker: Successfully appended transaction transfer_1749865533637543854 to queue file
+2025/06/13 18:45:33 ChannelWorker: Released queue mutex for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 ChannelWorker: Acquired transaction mutex for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 ChannelWorker: Added transaction transfer_1749865533637543854 to transaction map
+2025/06/13 18:45:33 ChannelWorker: Released transaction mutex for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 ChannelWorker: Successfully processed transaction transfer_1749865533637543854 and added to queue
+2025/06/13 18:45:33 QueueWorker: Dequeued transaction transfer_1749865533637543854 (remaining queue length: 0)
+2025/06/13 18:45:33 hasTxnCommittedInLog: Checking if transaction transfer_1749865533637543854 is committed in log
+2025/06/13 18:45:33 hasTxnCommittedInLog: Successfully read log file, size: 853 bytes
+2025/06/13 18:45:33 hasTxnCommittedInLog: Transaction transfer_1749865533637543854 not found as committed in log
+2025/06/13 18:45:33 QueueWorker: Processing transaction transfer_1749865533637543854 with status 
+2025/06/13 18:45:33 ProcessTransaction: Starting to process transaction transfer_1749865533637543854 with current status: 
+2025/06/13 18:45:33 ProcessTransaction: Created context with timeout 10s for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 ProcessTransaction: Transaction transfer_1749865533637543854 is new, starting with pending state
+2025/06/13 18:45:33 LogToFile: Attempting to log entry to file txn.log: Transaction transfer_1749865533637543854: PENDING
+2025/06/13 18:45:33 LogToFile: Acquired log file mutex
+2025/06/13 18:45:33 LogToFile: Successfully opened log file for writing
+2025/06/13 18:45:33 LogToFile: Successfully wrote 50 bytes to log file txn.log
+2025/06/13 18:45:33 ProcessTransaction: Transaction transfer_1749865533637543854 set to pending state
+2025/06/13 18:45:33 ProcessTransaction: Starting prepare phase for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 ProcessTransaction: Prepare phase goroutine started for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 PreparePhase: Starting prepare phase for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 GetAssociatedBackendsPrepare: Building prepare requests for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 GetAssociatedBackendsPrepare: Transaction details - From: A, To: B, Amount: 999999
+2025/06/13 18:45:33 hashToBin: Computing bin for account: A
+2025/06/13 18:45:33 hashToBin: Account A -> hash: 3289118412 -> bin index: 0 -> bin name: bin0
+2025/06/13 18:45:33 GetAssociatedBackendsPrepare: Added DEBIT operation for account A - bin: bin0, backend: 127.0.0.1:8000, key: bin0::A
+2025/06/13 18:45:33 hashToBin: Computing bin for account: B
+2025/06/13 18:45:33 hashToBin: Account B -> hash: 3339451269 -> bin index: 0 -> bin name: bin0
+2025/06/13 18:45:33 GetAssociatedBackendsPrepare: Added CREDIT operation for account B - bin: bin0, backend: 127.0.0.1:8000, key: bin0::B
+2025/06/13 18:45:33 GetAssociatedBackendsPrepare: Backend 127.0.0.1:8000 will handle 2 operations
+2025/06/13 18:45:33 GetAssociatedBackendsPrepare: Backend 127.0.0.1:8000 operation 1: DEBIT on key bin0::A
+2025/06/13 18:45:33 GetAssociatedBackendsPrepare: Backend 127.0.0.1:8000 operation 2: CREDIT on key bin0::B
+2025/06/13 18:45:33 GetAssociatedBackendsPrepare: Created 1 backend requests with 2 total operations for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 PreparePhase: Found 1 backends to prepare for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 PreparePhase: Backend 127.0.0.1:8000 will handle 2 operations for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 PreparePhase: Created prepare channel with capacity 2 for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 PreparePhase: Launching 2 goroutines to send 2 prepare requests for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 PreparePhase: Waiting for 2 prepare responses for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 PreparePhase: Goroutine started for backend 127.0.0.1:8000, operation 1 (DEBIT on bin0::A), transaction transfer_1749865533637543854
+2025/06/13 18:45:33 sendPrepareToBackends: Sending prepare request to backend 127.0.0.1:8000 for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 sendPrepareToBackends: Request details - Key: bin0::A, Value: 999999, Operation: DEBIT
+2025/06/13 18:45:33 PreparePhase: Goroutine started for backend 127.0.0.1:8000, operation 2 (CREDIT on bin0::B), transaction transfer_1749865533637543854
+2025/06/13 18:45:33 sendPrepareToBackends: Sending prepare request to backend 127.0.0.1:8000 for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 sendPrepareToBackends: Request details - Key: bin0::B, Value: 999999, Operation: CREDIT
+2025/06/13 18:45:33 sendPrepareToBackends: Successfully connected to backend 127.0.0.1:8000
+2025/06/13 18:45:33 sendPrepareToBackends: Created KV service client for backend 127.0.0.1:8000
+2025/06/13 18:45:33 sendPrepareToBackends: Successfully connected to backend 127.0.0.1:8000
+2025/06/13 18:45:33 sendPrepareToBackends: Created KV service client for backend 127.0.0.1:8000
+2025/06/13 18:45:33 sendPrepareToBackends: gRPC call failed for backend 127.0.0.1:8000, key bin0::A, transaction transfer_1749865533637543854: rpc error: code = Unknown desc = insufficient funds: current balance 10, debit amount 999999
+2025/06/13 18:45:33 PreparePhase: Goroutine completed for backend 127.0.0.1:8000, operation 1, transaction transfer_1749865533637543854, result: false
+2025/06/13 18:45:33 PreparePhase: Received response 1/2 for transaction transfer_1749865533637543854, success: false
+2025/06/13 18:45:33 PreparePhase: Prepare failed for transaction transfer_1749865533637543854 (response 1/2), aborting phase
+2025/06/13 18:45:33 ProcessTransaction: Prepare phase completed for transaction transfer_1749865533637543854 with result: false
+2025/06/13 18:45:33 ProcessTransaction: Prepare phase result received for transaction transfer_1749865533637543854: false
+2025/06/13 18:45:33 ProcessTransaction: Prepare phase failed for transaction transfer_1749865533637543854, starting abort
+2025/06/13 18:45:33 AbortPhase: Starting abort phase for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 GetAssociatedBackendsAbort: Building abort requests for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 GetAssociatedBackendsAbort: Transaction details - From: A, To: B
+2025/06/13 18:45:33 hashToBin: Computing bin for account: A
+2025/06/13 18:45:33 hashToBin: Account A -> hash: 3289118412 -> bin index: 0 -> bin name: bin0
+2025/06/13 18:45:33 GetAssociatedBackendsAbort: Added abort request for FROM account A - bin: bin0, backend: 127.0.0.1:8000
+2025/06/13 18:45:33 hashToBin: Computing bin for account: B
+2025/06/13 18:45:33 hashToBin: Account B -> hash: 3339451269 -> bin index: 0 -> bin name: bin0
+2025/06/13 18:45:33 GetAssociatedBackendsAbort: Added abort request for TO account B - bin: bin0, backend: 127.0.0.1:8000
+2025/06/13 18:45:33 GetAssociatedBackendsAbort: Created 1 abort requests for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 AbortPhase: Found 1 backends to abort for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 AbortPhase: Backend 127.0.0.1:8000 will abort transaction transfer_1749865533637543854
+2025/06/13 18:45:33 AbortPhase: Created abort channel with capacity 1 for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 AbortPhase: Launching 1 goroutines to send abort requests for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 AbortPhase: Waiting for 1 abort responses for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 sendPrepareToBackends: Received response from backend 127.0.0.1:8000 for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 sendPrepareToBackends: Prepare successful for backend 127.0.0.1:8000, key bin0::B, operation CREDIT, transaction transfer_1749865533637543854
+2025/06/13 18:45:33 AbortPhase: Goroutine started for backend 127.0.0.1:8000, transaction transfer_1749865533637543854
+2025/06/13 18:45:33 sendAbortToBackends: Sending abort request to backend 127.0.0.1:8000 for transaction transfer_1749865533637543854
+2025/06/13 18:45:33 PreparePhase: Goroutine completed for backend 127.0.0.1:8000, operation 2, transaction transfer_1749865533637543854, result: true
+2025/06/13 18:45:33 sendAbortToBackends: Successfully connected to backend 127.0.0.1:8000
+2025/06/13 18:45:33 sendAbortToBackends: Created KV service client for backend 127.0.0.1:8000
+2025/06/13 18:45:37 sendAbortToBackends: gRPC call failed for backend 127.0.0.1:8000, transaction transfer_1749865533637543854: rpc error: code = Unavailable desc = error reading from server: EOF
+2025/06/13 18:45:37 AbortPhase: Goroutine completed for backend 127.0.0.1:8000, transaction transfer_1749865533637543854, result: false
+2025/06/13 18:45:37 AbortPhase: Received response 1/1 for transaction transfer_1749865533637543854, success: false
+2025/06/13 18:45:37 AbortPhase: Abort failed for backend (response 1/1) for transaction transfer_1749865533637543854
+2025/06/13 18:45:37 AbortPhase: Abort phase completed for transaction transfer_1749865533637543854 (0/1 backends responded successfully)
+2025/06/13 18:45:37 LogToFile: Attempting to log entry to file txn.log: Transaction transfer_1749865533637543854: ABORTED
+2025/06/13 18:45:37 LogToFile: Acquired log file mutex
+2025/06/13 18:45:37 LogToFile: Successfully opened log file for writing
+2025/06/13 18:45:37 LogToFile: Successfully wrote 50 bytes to log file txn.log
+2025/06/13 18:45:37 ProcessTransaction: Transaction transfer_1749865533637543854 aborted after prepare failure
+2025/06/13 18:45:37 QueueWorker: Transaction transfer_1749865533637543854 processing failed: prepare phase failed
+2025/06/13 18:45:37 QueueWorker: Transaction transfer_1749865533637543854 aborted, sending ABORTED ACK to client 127.0.0.1:9090
+2025/06/13 18:45:37 sendAckToClient: Sending ACK to client 127.0.0.1:9090 for transaction transfer_1749865533637543854 with status ABORTED
+2025/06/13 18:45:37 sendAckToClient: Successfully established connection to client 127.0.0.1:9090
+2025/06/13 18:45:37 sendAckToClient: Successfully sent ACK to client 127.0.0.1:9090 for transaction transfer_1749865533637543854
+2025/06/13 18:45:37 QueueWorker: Successfully sent ABORTED notification to client for transaction transfer_1749865533637543854
+2025/06/13 18:45:37 QueueWorker: Removing transaction transfer_1749865533637543854 from queue file
+2025/06/13 18:45:37 RemoveTxnFromQueueFile: Removing transaction transfer_1749865533637543854 from queue file: queue.json
+2025/06/13 18:45:37 RemoveTxnFromQueueFile: Read queue file, size: 116 bytes
+2025/06/13 18:45:37 RemoveTxnFromQueueFile: Removing transaction transfer_1749865533637543854 from queue (line 1)
+2025/06/13 18:45:37 RemoveTxnFromQueueFile: Skipping empty line 2
+2025/06/13 18:45:37 RemoveTxnFromQueueFile: Removed 1 instances of transaction transfer_1749865533637543854 from queue
+2025/06/13 18:45:37 RemoveTxnFromQueueFile: Successfully updated queue file after removing transaction transfer_1749865533637543854
+signal: killed
