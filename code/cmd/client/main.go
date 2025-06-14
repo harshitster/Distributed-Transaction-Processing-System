@@ -19,11 +19,9 @@ type Config struct {
 }
 
 func main() {
-	// Default values
 	defaultCoordinator := "localhost:9000"
 	defaultClientAddr := "localhost:9090"
 
-	// Try to load from config.json
 	conf, err := loadConfig()
 	if err == nil {
 		defaultCoordinator = conf.Coordinator
@@ -32,12 +30,10 @@ func main() {
 		log.Printf("Using default addresses (config error: %v)", err)
 	}
 
-	// Define command-line flags
 	coordinatorAddr := flag.String("coordinator", defaultCoordinator, "Coordinator address")
 	clientAddr := flag.String("client", defaultClientAddr, "Client listener address")
 	flag.Parse()
 
-	// Initialize client
 	c := client.NewClient(*coordinatorAddr, *clientAddr)
 	err = c.StartServer()
 	if err != nil {
@@ -45,9 +41,8 @@ func main() {
 	}
 	defer c.Stop()
 
-	time.Sleep(1 * time.Second) // Allow server to start
+	time.Sleep(1 * time.Second)
 
-	// Handle subcommands
 	if len(flag.Args()) < 1 {
 		printUsage()
 		return
@@ -76,19 +71,16 @@ func main() {
 func loadConfig() (Config, error) {
 	var conf Config
 
-	// Get current working directory
 	cwd, err := os.Getwd()
 	if err != nil {
 		return conf, err
 	}
 
-	// Check if we're in the project root
 	configPath := filepath.Join("./code/config.json")
 	if _, err := os.Stat(configPath); err == nil {
 		return parseConfig(configPath)
 	}
 
-	// If not found, try parent directory (cmd directory case)
 	parentDir := filepath.Dir(cwd)
 	configPath = filepath.Join(parentDir, "config.json")
 	if _, err := os.Stat(configPath); err == nil {
@@ -289,7 +281,7 @@ func handleManual(c *client.Client, args []string) {
 		txnID,
 		"transfer",
 		[]string{args[0], args[1]},
-		int32(amount), // Convert to int32
+		int32(amount),
 	)
 	if err != nil {
 		log.Printf("Submission failed: %v", err)
@@ -344,7 +336,7 @@ func handleBatch(c *client.Client, args []string) {
 				txnID,
 				"transfer",
 				[]string{args[1], args[2]},
-				int32(amount), // Convert to int32
+				int32(amount),
 				30*time.Second,
 			)
 

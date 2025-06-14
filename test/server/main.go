@@ -37,7 +37,7 @@ type KVServer struct {
 	proto.UnimplementedKVServiceServer
 
 	store              map[string]int
-	prepare_log        map[string]map[string]PreparedTxn // txnId -> accountKey -> PreparedTxn
+	prepare_log        map[string]map[string]PreparedTxn
 	mu                 sync.Mutex
 	logFilePath        string
 	peerAddresses      []string
@@ -106,11 +106,9 @@ func (s *KVServer) RecoverFromLog() error {
 			}
 		case "ABORT":
 			if len(fields) >= 4 {
-				// New format: ABORT txnId key value
 				txnId := fields[1]
 				delete(s.prepare_log, txnId)
 			} else {
-				// Old format: ABORT txnId (for backward compatibility)
 				txnId := fields[1]
 				delete(s.prepare_log, txnId)
 			}
@@ -163,7 +161,6 @@ func (s *KVServer) Prepare(ctx context.Context, req *proto.PrepareRequest) (*pro
 	value := req.Value
 	operation := req.Operation
 
-	// Check if this specific operation for this transaction already exists
 	if txnOps, exists := s.prepare_log[txnId]; exists {
 		if _, opExists := txnOps[key]; opExists {
 			log.Printf("PREPARE: Operation for transaction %s and key %s already exists, returning success", txnId, key)
@@ -184,7 +181,6 @@ func (s *KVServer) Prepare(ctx context.Context, req *proto.PrepareRequest) (*pro
 		log.Printf("PREPARE: Current balance for key %s: %d", key, currentBalance)
 	}
 
-	// Log current store contents for debugging
 	log.Printf("PREPARE: Current store contents:")
 	for k, v := range s.store {
 		log.Printf("  %s: %d", k, v)
@@ -206,7 +202,6 @@ func (s *KVServer) Prepare(ctx context.Context, req *proto.PrepareRequest) (*pro
 		return &proto.Ack{Success: false}, fmt.Errorf("unknown operation: %s", operation)
 	}
 
-	// Initialize transaction map if it doesn't exist
 	if s.prepare_log[txnId] == nil {
 		s.prepare_log[txnId] = make(map[string]PreparedTxn)
 		log.Printf("PREPARE: Created new transaction entry for txnId: %s", txnId)
@@ -234,7 +229,6 @@ func (s *KVServer) Prepare(ctx context.Context, req *proto.PrepareRequest) (*pro
 		log.Printf("TEST HOOK S2: Pausing after writing PREPARE to log but before sending ACK...")
 		time.Sleep(time.Duration(TEST_SLEEP_MS) * time.Millisecond)
 	}
-	// Only start PostPrepare goroutine once per transaction
 	if len(s.prepare_log[txnId]) == 1 {
 		log.Printf("PREPARE: Starting PostPrepare goroutine for txnId: %s", txnId)
 		go s.PostPrepare(txnId)
@@ -249,7 +243,6 @@ func (s *KVServer) Prepare(ctx context.Context, req *proto.PrepareRequest) (*pro
 func (s *KVServer) PostPrepare(txnId string) {
 	time.Sleep(10 * time.Second)
 
-	// Step 1: Check own log file for COMMITTED entry
 	log.Printf("PostPrepare: Checking local log file %s for transaction %s", s.logFilePath, txnId)
 	data, err := os.ReadFile(s.logFilePath)
 	if err == nil {
@@ -264,7 +257,6 @@ func (s *KVServer) PostPrepare(txnId string) {
 		log.Printf("PostPrepare: Failed to read log file %s: %v", s.logFilePath, err)
 	}
 
-	// Step 2: Query coordinator
 	status := s.queryCoordinator(txnId)
 	if status == "COMMITTED" {
 		log.Printf("Coordinator says COMMITTED for txn %s", txnId)
@@ -276,7 +268,6 @@ func (s *KVServer) PostPrepare(txnId string) {
 		return
 	}
 
-	// Step 3: Fallback to peer query
 	result := s.queryBackendsForTxnStatus(txnId)
 	if result == "COMMITTED" {
 		log.Printf("Peer confirms COMMITTED for txn %s", txnId)
@@ -445,7 +436,7 @@ func (s *KVServer) Commit(ctx context.Context, req *proto.CommitRequest) (*proto
 			log.Printf("TEST HOOK S4: Pausing after applying key %s...", prep.key)
 			time.Sleep(time.Duration(TEST_SLEEP_MS) * time.Millisecond)
 		}
-		// Log each operation being committed
+
 		commitEntry := fmt.Sprintf("COMMIT %s %s %d\n", txnId, key, prep.value)
 		log.Printf("COMMIT: Writing to log file %s: %s", s.logFilePath, strings.TrimSpace(commitEntry))
 		s.logToFile(commitEntry)
@@ -473,7 +464,6 @@ func (s *KVServer) Abort(ctx context.Context, req *proto.AbortRequest) (*proto.A
 	if exists {
 		log.Printf("ABORT: Found transaction %s with %d operations to abort", txnId, len(txnOps))
 
-		// Log each operation being aborted
 		for key, prep := range txnOps {
 			abortEntry := fmt.Sprintf("ABORT %s %s %d\n", txnId, key, prep.value)
 			log.Printf("ABORT: Writing to log file %s: %s", s.logFilePath, strings.TrimSpace(abortEntry))
@@ -529,7 +519,6 @@ func (s *KVServer) Set(ctx context.Context, req *proto.SetRequest) (*proto.Ack, 
 func main() {
 	log.Printf("test_server.go: Main started")
 
-	// Expect: --config CONFIG --backend BACKEND_ID
 	if len(os.Args) < 5 || os.Args[1] != "--config" || os.Args[3] != "--backend" {
 		log.Fatalf("Usage: go run test_server.go --config test_config.json --backend backendX")
 	}
@@ -540,7 +529,6 @@ func main() {
 	log.Printf("Using config file: %s", configPath)
 	log.Printf("Using backend ID: %s", backendID)
 
-	// Load config
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		log.Fatalf("Failed to read config file %s: %v", configPath, err)
@@ -560,19 +548,15 @@ func main() {
 	if !ok {
 		log.Fatalf("Backend ID %s not found in config", backendID)
 	}
-
-	// Build peer addresses
 	var peerAddresses []string
 	for _, addr := range config.BackendMap {
 		peerAddresses = append(peerAddresses, addr)
 	}
 
-	// Build KVServer
 	logFilePath := fmt.Sprintf("%s.log", backendID)
 
 	kvServer := NewKVServer(logFilePath, peerAddresses, selfAddress, config.Coordinator)
 
-	// Start gRPC server
 	grpcServer := grpc.NewServer()
 	proto.RegisterKVServiceServer(grpcServer, kvServer)
 

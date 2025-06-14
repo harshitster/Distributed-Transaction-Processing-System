@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Paths
 TEST_COORD_BIN="./test/coordinator/main.go"
 TEST_SERVER_BIN="./test/server/main.go"
 CLIENT_BIN="./code/cmd/client/main.go"
@@ -10,20 +9,11 @@ LOG_DIR="./test/logs"
 
 mkdir -p "$LOG_DIR"
 
-# Load config
 COORDINATOR_ADDR=$(jq -r '.coordinator' "$CONFIG_FILE")
 CLIENT_ADDR=$(jq -r '.client_address' "$CONFIG_FILE"
 )
 BACKENDS=$(jq -r '.backend_map | keys[]' "$CONFIG_FILE")
 
-# Helper to start coordinator
-# start_coordinator() {
-#     echo "Starting Coordinator..." | tee -a "$RESULT_LOG"
-#     TEST_MODE=true TEST_SLEEP_MS=$2 $1 go run $TEST_COORD_BIN --config "$CONFIG_FILE" > "$LOG_DIR/coordinator.log" 2>&1 &
-#     COORD_PID=$!
-#     echo "Coordinator PID: $COORD_PID" | tee -a "$RESULT_LOG"
-#     sleep 2
-# }
 start_coordinator() {
     local sleep_ms=$1
     shift
@@ -31,23 +21,13 @@ start_coordinator() {
     env TEST_MODE=true TEST_SLEEP_MS=${sleep_ms} "$@" go run $TEST_COORD_BIN --config "$CONFIG_FILE" > "$LOG_DIR/coordinator.log" 2>&1 &
     COORD_PID=$!
 }
-# Helper to stop coordinator
+
 stop_coordinator() {
     echo "Stopping Coordinator PID $COORD_PID" | tee -a "$RESULT_LOG"
     kill $COORD_PID
     sleep 2
 }
 
-# Helper to start all backends
-# start_backends() {
-#     BACKEND_PIDS=()
-#     for BACKEND_ID in $BACKENDS; do
-#         echo "Starting backend $BACKEND_ID..." | tee -a "$RESULT_LOG"
-#         go run $TEST_SERVER_BIN --config "$CONFIG_FILE" --backend "$BACKEND_ID" > "$LOG_DIR/${BACKEND_ID}.log" 2>&1 &
-#         BACKEND_PIDS+=($!)
-#         sleep 1
-#     done
-# }
 start_backends() {
     local sleep_ms=$1
     shift
@@ -61,7 +41,7 @@ start_backends() {
         sleep 1
     done
 }
-# Helper to stop all backends
+
 stop_backends() {
     echo "Stopping backends..." | tee -a "$RESULT_LOG"
     for pid in "${BACKEND_PIDS[@]}"; do
@@ -70,7 +50,6 @@ stop_backends() {
     sleep 2
 }
 
-# Helper to run client transaction
 run_client_txn() {
     local txn_desc=$1
     local txn_cmd=$2
@@ -81,7 +60,6 @@ run_client_txn() {
     echo "" | tee -a "$RESULT_LOG"
 }
 
-# START TEST RUN
 echo "2PC S1-S6 Test Run - $(date)" > "$RESULT_LOG"
 echo "==========================" >> "$RESULT_LOG"
 echo "" >> "$RESULT_LOG"

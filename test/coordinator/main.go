@@ -45,7 +45,7 @@ var (
 	PAUSE_AT_C5       = os.Getenv("PAUSE_AT_C5") == "true"
 	PAUSE_AT_C6       = os.Getenv("PAUSE_AT_C6") == "true"
 	TEST_SLEEP_MS_ENV = os.Getenv("TEST_SLEEP_MS")
-	TEST_SLEEP_MS     = 5000 // Default to 5 seconds if not specified
+	TEST_SLEEP_MS     = 5000
 )
 
 func init() {
@@ -131,7 +131,6 @@ func (c *Coordinator) Txn(ctx context.Context, req *proto.TxnRequest) (*proto.Tx
 		return &proto.TxnResponse{Accepted: false}, fmt.Errorf("unsupported operation: %s", req.Op)
 	}
 
-	// Send txn to channel for queueing
 	log.Printf("Txn: Attempting to queue transaction %s", req.Id)
 	select {
 	case c.ProcessChannel <- txn:
@@ -165,68 +164,6 @@ func (c *Coordinator) AckTxn(ctx context.Context, req *proto.AckTxnRequest) (*pr
 	log.Printf("AckTxn: Acknowledgment received for committed transaction %s", txnId)
 	return &proto.CoordAck{Success: true}, nil
 }
-
-// Load transactions in progress from log file: only one txn will be prepare or pending
-// func (c *Coordinator) RecoverTxnLog() *Transaction {
-// 	log.Printf("RecoverTxnLog: Starting transaction log recovery from file: %s", c.logPath)
-
-// 	file, err := os.Open(c.logPath)
-// 	if err != nil {
-// 		log.Printf("RecoverTxnLog: Failed to open log file %s: %v", c.logPath, err)
-// 		return nil
-// 	}
-// 	defer file.Close()
-// 	log.Printf("RecoverTxnLog: Successfully opened log file for reading")
-
-// 	scanner := bufio.NewScanner(file)
-// 	txnMap := make(map[string]*Transaction)
-// 	lineCount := 0
-
-// 	for scanner.Scan() {
-// 		lineCount++
-// 		line := scanner.Text()
-// 		log.Printf("RecoverTxnLog: Processing log line %d: %s", lineCount, line)
-
-// 		fields := strings.Fields(line)
-// 		if len(fields) < 3 {
-// 			log.Printf("RecoverTxnLog: Skipping malformed line %d (insufficient fields): %s", lineCount, line)
-// 			continue
-// 		}
-
-// 		txnId := fields[1]
-// 		status := fields[2]
-
-// 		txn := txnMap[txnId]
-// 		if txn == nil {
-// 			txn = &Transaction{ID: txnId}
-// 			txnMap[txnId] = txn
-// 			log.Printf("RecoverTxnLog: Created new transaction object for ID: %s", txnId)
-// 		}
-
-// 		txn.Status = TxnStatus(status)
-// 		log.Printf("RecoverTxnLog: Set transaction %s status to %s", txnId, status)
-// 	}
-
-// 	if err := scanner.Err(); err != nil {
-// 		log.Printf("RecoverTxnLog: Error reading log file: %v", err)
-// 		return nil
-// 	}
-
-// 	log.Printf("RecoverTxnLog: Processed %d log lines, found %d unique transactions", lineCount, len(txnMap))
-
-// 	// Look for transactions that need recovery
-// 	for txnId, txn := range txnMap {
-// 		if txn.Status == TxnPrepared || txn.Status == TxnPending {
-// 			log.Printf("RecoverTxnLog: Found transaction %s requiring recovery with status %s", txnId, txn.Status)
-// 			c.TxnMap[txn.ID] = txn
-// 			log.Printf("RecoverTxnLog: Added transaction %s to coordinator's transaction map", txnId)
-// 			return txn
-// 		}
-// 	}
-
-// 	log.Printf("RecoverTxnLog: No transactions found requiring recovery")
-// 	return nil
-// }
 
 func (c *Coordinator) RecoverTxnLog() []*Transaction {
 	log.Printf("RecoverTxnLog: Starting transaction log recovery from file: %s", c.logPath)
@@ -291,7 +228,6 @@ func (c *Coordinator) RecoverTxnLog() []*Transaction {
 	return toRecover
 }
 
-// Append to queue file instead of saving full queue
 func (c *Coordinator) AppendTxnToQueueFile(txn *Transaction, queuePath string) error {
 	log.Printf("AppendTxnToQueueFile: Appending transaction %s to queue file: %s", txn.ID, queuePath)
 
@@ -320,7 +256,6 @@ func (c *Coordinator) AppendTxnToQueueFile(txn *Transaction, queuePath string) e
 	return err
 }
 
-// Recover queue by reading line-by-line appended JSON objects
 func (c *Coordinator) RecoverQueueFromFile(queuePath string) error {
 	log.Printf("RecoverQueueFromFile: Starting queue recovery from file: %s", queuePath)
 
@@ -363,7 +298,6 @@ func (c *Coordinator) RecoverQueueFromFile(queuePath string) error {
 	return nil
 }
 
-// Remove processed transaction from queue.json
 func (c *Coordinator) RemoveTxnFromQueueFile(txnId string, queuePath string) error {
 	log.Printf("RemoveTxnFromQueueFile: Removing transaction %s from queue file: %s", txnId, queuePath)
 
@@ -410,30 +344,6 @@ func (c *Coordinator) RemoveTxnFromQueueFile(txnId string, queuePath string) err
 
 	return err
 }
-
-// func (c *Coordinator) hasTxnCommittedInLog(txnId string) bool {
-// 	log.Printf("hasTxnCommittedInLog: Checking if transaction %s is committed in log", txnId)
-
-// 	data, err := os.ReadFile(c.logPath)
-// 	if err != nil {
-// 		log.Printf("hasTxnCommittedInLog: Failed to read log file %s: %v", c.logPath, err)
-// 		return false
-// 	}
-// 	log.Printf("hasTxnCommittedInLog: Successfully read log file, size: %d bytes", len(data))
-
-// 	lines := strings.Split(string(data), "\n")
-// 	commitPrefix := "Transaction " + txnId + ": COMMITTED"
-
-// 	for i, line := range lines {
-// 		if strings.HasPrefix(line, commitPrefix) {
-// 			log.Printf("hasTxnCommittedInLog: Found committed transaction %s at line %d: %s", txnId, i+1, line)
-// 			return true
-// 		}
-// 	}
-
-// 	log.Printf("hasTxnCommittedInLog: Transaction %s not found as committed in log", txnId)
-// 	return false
-// }
 
 func (c *Coordinator) hasTxnCommittedInLog(txnId string) bool {
 	log.Printf("hasTxnCommittedInLog: Checking if transaction %s is committed in log", txnId)
@@ -484,82 +394,6 @@ func sendAckToClient(addr, txnId, status string) error {
 
 	return err
 }
-
-// func (c *Coordinator) QueueWorker() {
-// 	log.Printf("QueueWorker: Starting queue worker")
-
-// 	recovered := c.RecoverTxnLog()
-// 	if recovered != nil {
-// 		log.Printf("QueueWorker: Processing recovered transaction %s", recovered.ID)
-// 		c.ProcessTransaction(recovered)
-// 	} else {
-// 		log.Printf("QueueWorker: No transactions to recover")
-// 	}
-
-// 	log.Printf("QueueWorker: Entering main processing loop")
-// 	for {
-// 		c.QueueMu.Lock()
-// 		queueLength := len(c.TxnQueue)
-
-// 		if queueLength == 0 {
-// 			c.QueueMu.Unlock()
-// 			// log.Printf("QueueWorker: Queue is empty, sleeping for 100ms")
-// 			time.Sleep(100 * time.Millisecond)
-// 			continue
-// 		}
-
-// 		txn := c.TxnQueue[0]
-// 		c.TxnQueue = c.TxnQueue[1:]
-// 		c.QueueMu.Unlock()
-
-// 		log.Printf("QueueWorker: Dequeued transaction %s (remaining queue length: %d)", txn.ID, queueLength-1)
-
-// 		if c.hasTxnCommittedInLog(txn.ID) {
-// 			log.Printf("QueueWorker: Transaction %s already committed, sending commit ACK to %s", txn.ID, txn.ClientAddr)
-// 			if err := sendAckToClient(txn.ClientAddr, txn.ID, "COMMITTED"); err != nil {
-// 				log.Printf("QueueWorker: Failed to send commit ACK for transaction %s: %v", txn.ID, err)
-// 			}
-// 			continue
-// 		}
-
-// 		if txn.Status == TxnPrepared {
-// 			log.Printf("QueueWorker: Transaction %s is still in PREPARE state, discarding duplicate", txn.ID)
-// 			continue
-// 		}
-
-// 		log.Printf("QueueWorker: Processing transaction %s with status %v", txn.ID, txn.Status)
-// 		err := c.ProcessTransaction(txn)
-
-// 		if err == nil && txn.Status == TxnCommitted {
-// 			log.Printf("QueueWorker: Transaction %s committed successfully, sending ACK to client %s", txn.ID, txn.ClientAddr)
-// 			if TEST_MODE && PAUSE_AT_C6 {
-// 				log.Printf("TEST HOOK C6: Pausing after CommitPhase success, before sending ACK to client... sleeping %d ms", TEST_SLEEP_MS)
-// 				time.Sleep(time.Duration(TEST_SLEEP_MS) * time.Millisecond)
-// 			}
-// 			if ackErr := sendAckToClient(txn.ClientAddr, txn.ID, "COMMITTED"); ackErr != nil {
-// 				log.Printf("QueueWorker: Failed to send commit ACK for transaction %s: %v", txn.ID, ackErr)
-// 			}
-// 		} else {
-// 			// Transaction failed or was aborted
-// 			if err != nil {
-// 				log.Printf("QueueWorker: Transaction %s processing failed: %v", txn.ID, err)
-// 			}
-
-// 			// Send failure notification to client
-// 			log.Printf("QueueWorker: Transaction %s aborted, sending ABORTED ACK to client %s", txn.ID, txn.ClientAddr)
-// 			if ackErr := sendAckToClient(txn.ClientAddr, txn.ID, "ABORTED"); ackErr != nil {
-// 				log.Printf("QueueWorker: Failed to send abort ACK for transaction %s: %v", txn.ID, ackErr)
-// 			} else {
-// 				log.Printf("QueueWorker: Successfully sent ABORTED notification to client for transaction %s", txn.ID)
-// 			}
-// 		}
-
-// 		log.Printf("QueueWorker: Removing transaction %s from queue file", txn.ID)
-// 		if removeErr := c.RemoveTxnFromQueueFile(txn.ID, "queue.json"); removeErr != nil {
-// 			log.Printf("QueueWorker: Failed to remove transaction %s from queue file: %v", txn.ID, removeErr)
-// 		}
-// 	}
-// }
 
 func (c *Coordinator) QueueWorker() {
 	log.Printf("QueueWorker: Starting queue worker")
@@ -671,7 +505,6 @@ func (c *Coordinator) ChannelWorker() {
 	log.Printf("ChannelWorker: Process channel closed, exiting channel worker")
 }
 
-// Enhance NewCoordinator to include queue + txn log recovery
 func NewCoordinator(BinsJSON string, logPath string, timeout time.Duration, maxNumTransactions int) (*Coordinator, error) {
 	log.Printf("NewCoordinator: Creating new coordinator with config - BinsJSON: %s, logPath: %s, timeout: %v, maxTransactions: %d",
 		BinsJSON, logPath, timeout, maxNumTransactions)
@@ -724,7 +557,6 @@ func (c *Coordinator) GetStatus(ctx context.Context, req *proto.GetStatusRequest
 
 	log.Printf("GetStatus: Transaction %s not found in transaction map, checking log file", req.TxnId)
 
-	// Check if transaction is in log file
 	if c.hasTxnCommittedInLog(req.TxnId) {
 		log.Printf("GetStatus: Transaction %s found as committed in log file", req.TxnId)
 		return &proto.GetStatusReply{Status: "COMMITTED"}, nil
@@ -769,36 +601,6 @@ func (c *Coordinator) LoadBinMappingConfig(path string) error {
 	return nil
 }
 
-// func (c *Coordinator) LogToFile(entry string) error {
-// 	log.Printf("LogToFile: Attempting to log entry to file %s: %s", c.logPath, strings.TrimSpace(entry))
-
-// 	c.logMu.Lock()
-// 	defer c.logMu.Unlock()
-// 	log.Printf("LogToFile: Acquired log file mutex")
-
-// 	file, err := os.OpenFile(c.logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-// 	if err != nil {
-// 		log.Printf("LogToFile: Failed to open log file %s: %v", c.logPath, err)
-// 		return err
-// 	}
-// 	defer file.Close()
-// 	log.Printf("LogToFile: Successfully opened log file for writing")
-
-// 	bytesWritten, err := file.WriteString(entry)
-// 	if err != nil {
-// 		log.Printf("LogToFile: Failed to write entry to log file: %v", err)
-// 		return err
-// 	}
-
-// 	if err := file.Sync(); err != nil {
-// 		log.Printf("LogToFile: Failed to sync log file: %v", err)
-// 		return err
-// 	}
-
-// 	log.Printf("LogToFile: Successfully wrote %d bytes to log file %s", bytesWritten, c.logPath)
-// 	return nil
-// }
-
 func (c *Coordinator) LogToFile(entry string) error {
 	log.Printf("LogToFile: Attempting to log entry to file %s: %s", c.logPath, strings.TrimSpace(entry))
 
@@ -829,7 +631,6 @@ func (c *Coordinator) LogToFile(entry string) error {
 	return nil
 }
 
-// Updated ProcessTransaction to support different restart stages with timeout for prepare
 func (c *Coordinator) ProcessTransaction(txn *Transaction) error {
 	log.Printf("ProcessTransaction: Starting to process transaction %s with current status: %v", txn.ID, txn.Status)
 
@@ -1002,7 +803,6 @@ func (c *Coordinator) GetAssociatedBackendsPrepare(txn *Transaction) map[string]
 		log.Printf("GetAssociatedBackendsPrepare: No TO account specified for transaction %s", txn.ID)
 	}
 
-	// Log total operations per backend
 	totalOperations := 0
 	for backend, batchReq := range backends {
 		operationCount := len(batchReq.Operations)
@@ -1026,7 +826,6 @@ func (c *Coordinator) PreparePhase(ctx context.Context, txn *Transaction) bool {
 	totalBackends := len(backends)
 	log.Printf("PreparePhase: Found %d backends to prepare for transaction %s", totalBackends, txn.ID)
 
-	// Count total operations across all backends
 	totalOperations := 0
 	for addr, batchReq := range backends {
 		operationCount := len(batchReq.Operations)
@@ -1045,7 +844,6 @@ func (c *Coordinator) PreparePhase(ctx context.Context, txn *Transaction) bool {
 		time.Sleep(time.Duration(TEST_SLEEP_MS) * time.Millisecond)
 	}
 	for backendAddr, batchReq := range backends {
-		// Send each operation as a separate prepare request
 		for i, prepareReq := range batchReq.Operations {
 			go func(addr string, req *proto.PrepareRequest, opIndex int) {
 				log.Printf("PreparePhase: Goroutine started for backend %s, operation %d (%s on %s), transaction %s",
@@ -1423,20 +1221,17 @@ func getCoordinatorAddressFromConfig(path string) string {
 func main() {
 	log.Printf("test_coordinator.go: Main started")
 
-	// Expect --config argument
 	if len(os.Args) < 3 || os.Args[1] != "--config" {
 		log.Fatalf("Usage: go run test_coordinator.go --config test_config.json")
 	}
 	configPath := os.Args[2]
 	log.Printf("Using config file: %s", configPath)
 
-	// Load config (you already have LoadBinMappingConfig logic)
 	coordinator, err := NewCoordinator(configPath, "txn.log", 10*time.Second, 1000)
 	if err != nil {
 		log.Fatalf("Failed to create coordinator: %v", err)
 	}
 
-	// Start gRPC server
 	grpcServer := grpc.NewServer()
 	proto.RegisterCoordinatorServiceServer(grpcServer, coordinator)
 
