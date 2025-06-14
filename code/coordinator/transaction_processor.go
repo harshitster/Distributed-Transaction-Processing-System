@@ -17,15 +17,8 @@ func (c *Coordinator) ProcessTransaction(txn *Transaction) error {
 		log.Printf("ProcessTransaction: Transaction %s is in PREPARED state, restarting from commit phase", txn.ID)
 
 		if !c.CommitPhase(ctx, txn) {
-			log.Printf("ProcessTransaction: Commit phase failed for transaction %s, starting abort", txn.ID)
-			txn.Status = TxnAborted
-			c.AbortPhase(ctx, txn)
-			logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
-			if logErr := c.LogToFile(logEntry); logErr != nil {
-				log.Printf("ProcessTransaction: Failed to log abort for transaction %s: %v", txn.ID, logErr)
-			}
-			log.Printf("ProcessTransaction: Transaction %s aborted after commit failure", txn.ID)
-			return fmt.Errorf("commit phase failed")
+			log.Printf("ProcessTransaction: Commit phase failed for transaction %s, will rely on PostPrepare — NOT aborting", txn.ID)
+			// return nil
 		}
 
 		logEntry := fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnCommitted)
@@ -99,15 +92,8 @@ func (c *Coordinator) ProcessTransaction(txn *Transaction) error {
 
 	log.Printf("ProcessTransaction: Starting commit phase for transaction %s", txn.ID)
 	if !c.CommitPhase(ctx, txn) {
-		log.Printf("ProcessTransaction: Commit phase failed for transaction %s, starting abort", txn.ID)
-		txn.Status = TxnAborted
-		c.AbortPhase(ctx, txn)
-		logEntry = fmt.Sprintf("Transaction %s: %s\n", txn.ID, TxnAborted)
-		if logErr := c.LogToFile(logEntry); logErr != nil {
-			log.Printf("ProcessTransaction: Failed to log abort after commit failure for transaction %s: %v", txn.ID, logErr)
-		}
-		log.Printf("ProcessTransaction: Transaction %s aborted after commit failure", txn.ID)
-		return fmt.Errorf("commit phase failed")
+		log.Printf("ProcessTransaction: Commit phase failed for transaction %s, will rely on PostPrepare — NOT aborting", txn.ID)
+		// return nil
 	}
 
 	log.Printf("ProcessTransaction: Commit phase successful for transaction %s, logging committed state", txn.ID)

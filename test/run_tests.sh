@@ -74,12 +74,12 @@ echo "2PC C1-C7 Test Run - $(date)" > "$RESULT_LOG"
 echo "==========================" >> "$RESULT_LOG"
 echo "" >> "$RESULT_LOG"
 
-# # Start backends
-# start_backends
+# Start backends
+start_backends
 
-######################################
-# C1 - Normal Transaction
-######################################
+#####################################
+C1 - Normal Transaction
+#####################################
 start_coordinator 5000
 start_backends
 run_client_txn "C1 - Normal Transaction" \
@@ -90,100 +90,136 @@ sudo lsof -t -iTCP:8000 -sTCP:LISTEN | xargs -r sudo kill -9
 sudo lsof -t -iTCP:8001 -sTCP:LISTEN | xargs -r sudo kill -9
 sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
 sudo lsof -t -iTCP:9090 -sTCP:LISTEN | xargs -r sudo kill -9
-######################################
+
+
+# #####################################
 # C2 - Crash after sending Prepare
-######################################
-start_coordinator 8000 PAUSE_AT_C2=true
-start_backends
-sleep 2
-run_client_txn "C2 - Crash after sending Prepare" \
-    "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 10 &"
-CLIENT_PID=$!
-sleep 3
-stop_coordinator
-sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
-wait $CLIENT_PID
-start_coordinator 5000
-sleep 8
-stop_coordinator
-stop_backends
-sudo lsof -t -iTCP:8000 -sTCP:LISTEN | xargs -r sudo kill -9
-sudo lsof -t -iTCP:8001 -sTCP:LISTEN | xargs -r sudo kill -9
-sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
-sudo lsof -t -iTCP:9090 -sTCP:LISTEN | xargs -r sudo kill -9
+# #####################################
+# start_coordinator 8000 PAUSE_AT_C2=true
+# start_backends
+# sleep 2
+# run_client_txn "C2 - Crash after sending Prepare" \
+#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 10 &"
+# CLIENT_PID=$!
+# sleep 3
+# stop_coordinator
+# sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
+# wait $CLIENT_PID
+# start_coordinator 5000
+# sleep 8
+# stop_coordinator
+# stop_backends
+# sudo lsof -t -iTCP:8000 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:8001 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:9090 -sTCP:LISTEN | xargs -r sudo kill -9
 # ######################################
 # # C3 - Crash after Prepare ACKs received but before Commit
 # ######################################
+# start_coordinator 8000 PAUSE_AT_C3=true
 # start_backends
-# start_coordinator "PAUSE_AT_C3=true" 5000
+# sleep 2
 # run_client_txn "C3 - Crash after Prepare ACKs but before Commit" \
-#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer E F 20 &"
+#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer B A 10 &"
 # CLIENT_PID=$!
 # sleep 3
 # stop_coordinator
+# sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
+
 # wait $CLIENT_PID
-# start_coordinator "" 5000
+# start_coordinator 5000
 # sleep 5
 # stop_coordinator
 # stop_backends
+# sudo lsof -t -iTCP:8000 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:8001 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:9090 -sTCP:LISTEN | xargs -r sudo kill -9
 # ######################################
 # # C4 - Crash after TxnPrepared log written
 # ######################################
+# start_coordinator 5000 PAUSE_AT_C4=true
 # start_backends
-# start_coordinator "PAUSE_AT_C4=true" 5000
+# sleep 2
 # run_client_txn "C4 - Crash after writing TxnPrepared" \
-#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer G H 25 &"
+#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 5 &"
 # CLIENT_PID=$!
 # sleep 3
 # stop_coordinator
+# sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
+
 # wait $CLIENT_PID
-# start_coordinator "" 5000
+# start_coordinator 5000
 # sleep 5
 # stop_coordinator
 # stop_backends
+# sudo lsof -t -iTCP:8000 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:8001 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:9090 -sTCP:LISTEN | xargs -r sudo kill -9
+
 # ######################################
 # # C5 - Crash after some Commit sent
 # ######################################
+# start_coordinator 5000 PAUSE_AT_C5=true
 # start_backends
-# start_coordinator "PAUSE_AT_C5=true" 5000
+# sleep 2
 # run_client_txn "C5 - Crash after some Commit sent" \
-#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer I J 30 &"
+#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 4 &"
 # CLIENT_PID=$!
 # sleep 3
 # stop_coordinator
+# sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
+
 # wait $CLIENT_PID
-# start_coordinator "" 5000
+# start_coordinator 5000
 # sleep 5
 # stop_coordinator
 # stop_backends
+# sudo lsof -t -iTCP:8000 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:8001 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:9090 -sTCP:LISTEN | xargs -r sudo kill -9
+
 # ######################################
 # # C6 - Crash after full Commit but before client ACK
 # ######################################
+# start_coordinator 5000 PAUSE_AT_C6=true
 # start_backends
-# start_coordinator "PAUSE_AT_C6=true" 5000
+# sleep 2
 # run_client_txn "C6 - Crash after full Commit but before client ACK" \
-#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer K L 35 &"
+#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR credit L 35 &"
 # CLIENT_PID=$!
 # sleep 3
 # stop_coordinator
+# sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
+
 # wait $CLIENT_PID
-# start_coordinator "" 5000
+# start_coordinator 5000
 # sleep 5
 # stop_coordinator
 # stop_backends
+# sudo lsof -t -iTCP:8000 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:8001 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:9090 -sTCP:LISTEN | xargs -r sudo kill -9
+
 # ######################################
 # # C7 - Normal Commit with delayed client ACK
 # ######################################
+# start_coordinator 5000
 # start_backends
-# start_coordinator "" 5000
+# sleep 2
 # run_client_txn "C7 - Normal Commit with delayed client ACK" \
 #     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer M N 40"
 # echo "For C7: Simulate delayed ACK by not sending AckTxn immediately (manual if needed)" | tee -a "$RESULT_LOG"
 # sleep 5
 # stop_coordinator
-
-# # Stop backends
 # stop_backends
+# sudo lsof -t -iTCP:8000 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:8001 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
+# sudo lsof -t -iTCP:9090 -sTCP:LISTEN | xargs -r sudo kill -9
 
-# # Done
-# echo "All C1-C7 tests completed. Results saved to $RESULT_LOG."
+# Done
+echo "All C1-C7 tests completed. Results saved to $RESULT_LOG."

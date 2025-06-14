@@ -18,6 +18,21 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+var TEST_MODE = os.Getenv("TEST_MODE") == "true"
+var TEST_SLEEP_MS_ENV = os.Getenv("TEST_SLEEP_MS")
+var TEST_SLEEP_MS = 0
+
+var PAUSE_AT_S2 = os.Getenv("PAUSE_AT_S2") == "true"
+var PAUSE_AT_S4 = os.Getenv("PAUSE_AT_S4") == "true"
+var PAUSE_AT_S5 = os.Getenv("PAUSE_AT_S5") == "true"
+var PAUSE_AT_S6 = os.Getenv("PAUSE_AT_S6") == "true"
+
+func init() {
+	if ms, err := strconv.Atoi(TEST_SLEEP_MS_ENV); err == nil {
+		TEST_SLEEP_MS = ms
+	}
+}
+
 type KVServer struct {
 	proto.UnimplementedKVServiceServer
 
@@ -215,7 +230,10 @@ func (s *KVServer) Prepare(ctx context.Context, req *proto.PrepareRequest) (*pro
 		}
 		return &proto.Ack{Success: false}, err
 	}
-
+	if TEST_MODE && PAUSE_AT_S2 {
+		log.Printf("TEST HOOK S2: Pausing after writing PREPARE to log but before sending ACK...")
+		time.Sleep(time.Duration(TEST_SLEEP_MS) * time.Millisecond)
+	}
 	// Only start PostPrepare goroutine once per transaction
 	if len(s.prepare_log[txnId]) == 1 {
 		log.Printf("PREPARE: Starting PostPrepare goroutine for txnId: %s", txnId)
@@ -416,13 +434,17 @@ func (s *KVServer) Commit(ctx context.Context, req *proto.CommitRequest) (*proto
 	}
 
 	log.Printf("COMMIT: Found transaction %s with %d operations to commit", txnId, len(txnOps))
-
+	os.Stdout.Sync()
+	os.Stderr.Sync()
 	// Apply all operations for this transaction
 	for key, prep := range txnOps {
 		oldValue := s.store[prep.key]
 		s.store[prep.key] = prep.value
 		log.Printf("COMMIT: Applied operation - key: %s, old value: %d, new value: %d", prep.key, oldValue, prep.value)
-
+		if TEST_MODE && PAUSE_AT_S4 {
+			log.Printf("TEST HOOK S4: Pausing after applying key %s...", prep.key)
+			time.Sleep(time.Duration(TEST_SLEEP_MS) * time.Millisecond)
+		}
 		// Log each operation being committed
 		commitEntry := fmt.Sprintf("COMMIT %s %s %d\n", txnId, key, prep.value)
 		log.Printf("COMMIT: Writing to log file %s: %s", s.logFilePath, strings.TrimSpace(commitEntry))
@@ -430,6 +452,10 @@ func (s *KVServer) Commit(ctx context.Context, req *proto.CommitRequest) (*proto
 	}
 
 	delete(s.prepare_log, txnId)
+	if TEST_MODE && PAUSE_AT_S5 {
+		log.Printf("TEST HOOK S5: Pausing after full Commit written and prepare_log cleared...")
+		time.Sleep(time.Duration(TEST_SLEEP_MS) * time.Millisecond)
+	}
 	log.Printf("COMMIT: Successfully committed transaction %s", txnId)
 
 	return &proto.Ack{Success: true}, nil
@@ -452,8 +478,12 @@ func (s *KVServer) Abort(ctx context.Context, req *proto.AbortRequest) (*proto.A
 			abortEntry := fmt.Sprintf("ABORT %s %s %d\n", txnId, key, prep.value)
 			log.Printf("ABORT: Writing to log file %s: %s", s.logFilePath, strings.TrimSpace(abortEntry))
 			s.logToFile(abortEntry)
-		}
 
+		}
+		if TEST_MODE && PAUSE_AT_S6 {
+			log.Printf("TEST HOOK S6: Pausing after writing ABORT to log but before sending ACK...")
+			time.Sleep(time.Duration(TEST_SLEEP_MS) * time.Millisecond)
+		}
 		delete(s.prepare_log, txnId)
 		log.Printf("ABORT: Successfully aborted transaction %s", txnId)
 	} else {
