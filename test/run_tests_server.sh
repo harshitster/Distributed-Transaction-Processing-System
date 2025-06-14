@@ -75,88 +75,89 @@ cleanup_ports() {
 sudo lsof -t -iTCP:9000 -sTCP:LISTEN | xargs -r sudo kill -9
 sudo lsof -t -iTCP:9090 -sTCP:LISTEN | xargs -r sudo kill -9
 start_coordinator 5000
-# ######################################
-# # S1 - Backend crash before Prepare
-# ######################################
-# start_backends
-# sleep 2
-# stop_backends
-# cleanup_ports
-# sleep 1
-# start_backends
-# sleep 2
-# run_client_txn "S1 - Backend crash before Prepare" \
-#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR credit A 10"
-# stop_backends
-# cleanup_ports
 
 ######################################
-# S2 - Backend crash after Prepare written but before ACK sent
+# S1 - Backend crash before Prepare
 ######################################
-# start_backends 11000 PAUSE_AT_S2=true
-# sleep 2
-# run_client_txn "S2 - Backend crash after Prepare written but before ACK" \
-#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 10 &"
-# CLIENT_PID=$!
-# sleep 3
-# stop_backends
-# cleanup_ports
+start_backends
+sleep 2
+stop_backends
+cleanup_ports
+sleep 1
+start_backends
+sleep 2
+run_client_txn "S1 - Backend crash before Prepare" \
+    "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR credit A 10"
+stop_backends
+cleanup_ports
+
+#####################################
+S2 - Backend crash after Prepare written but before ACK sent
+#####################################
+start_backends 11000 PAUSE_AT_S2=true
+sleep 2
+run_client_txn "S2 - Backend crash after Prepare written but before ACK" \
+    "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 10 &"
+CLIENT_PID=$!
+sleep 3
+stop_backends
+cleanup_ports
 # wait $CLIENT_PID
-# start_backends
-# sleep 5
-# stop_backends
-# cleanup_ports
+start_backends
+sleep 5
+stop_backends
+cleanup_ports
+
+#####################################
+S3 - Backend crash after Prepare ACK, before Commit
+#####################################
+start_backends
+sleep 2
+run_client_txn "S3 - Backend crash after Prepare ACK before Commit" \
+    "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 10 &"
+CLIENT_PID=$!
+sleep 3
+stop_backends
+cleanup_ports
+# wait $CLIENT_PID
+start_backends
+sleep 5
+stop_backends
+cleanup_ports
 
 ######################################
-# S3 - Backend crash after Prepare ACK, before Commit
+# S4 - Backend crash after partial Commit applied
 ######################################
-# start_backends
-# sleep 2
-# run_client_txn "S3 - Backend crash after Prepare ACK before Commit" \
-#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 10 &"
-# CLIENT_PID=$!
-# sleep 3
-# stop_backends
-# cleanup_ports
+start_backends 11000 PAUSE_AT_S4=true
+sleep 2
+run_client_txn "S4 - Backend crash after partial Commit applied" \
+    "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer B A 10 &"
+CLIENT_PID=$!
+sleep 3
+stop_backends
+cleanup_ports
 # wait $CLIENT_PID
-# start_backends
-# sleep 5
-# stop_backends
-# cleanup_ports
+start_backends
+sleep 5
+stop_backends
+cleanup_ports
 
-# ######################################
-# # S4 - Backend crash after partial Commit applied
-# ######################################
-# start_backends 11000 PAUSE_AT_S4=true
-# sleep 2
-# run_client_txn "S4 - Backend crash after partial Commit applied" \
-#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer B A 10 &"
-# CLIENT_PID=$!
-# sleep 3
-# stop_backends
-# cleanup_ports
+######################################
+# S5 - Backend crash after Commit fully done
+######################################
+start_backends 5000 PAUSE_AT_S5=true
+sleep 20    
+run_client_txn "S5 - Backend crash after Commit fully done" \
+    "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 10 &"
+CLIENT_PID=$!
+sleep 3
+stop_backends
+cleanup_ports
 # wait $CLIENT_PID
-# start_backends
-# sleep 5
-# stop_backends
-# cleanup_ports
-
-# ######################################
-# # S5 - Backend crash after Commit fully done
-# ######################################
-# start_backends 5000 PAUSE_AT_S5=true
-# sleep 20    
-# run_client_txn "S5 - Backend crash after Commit fully done" \
-#     "go run $CLIENT_BIN -coordinator=$COORDINATOR_ADDR -client=$CLIENT_ADDR transfer A B 10 &"
-# CLIENT_PID=$!
-# sleep 3
-# stop_backends
-# cleanup_ports
-# wait $CLIENT_PID
-# start_backends
-# sleep 5
-# stop_backends
-# cleanup_ports
+start_backends
+sleep 5
+stop_backends
+cleanup_ports
 
 ######################################
 # S6 - Backend crash after Abort written
@@ -169,7 +170,7 @@ CLIENT_PID=$!
 sleep 3
 stop_backends
 cleanup_ports
-wait $CLIENT_PID
+# wait $CLIENT_PID
 start_backends
 sleep 5
 stop_backends
