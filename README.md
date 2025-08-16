@@ -124,7 +124,6 @@ sequenceDiagram
 - **Data Partitioning**: Consistent hashing for scalable data distribution
 - **ACID Guarantees**: Full transactional semantics across distributed stores
 
-```markdown
 ## Comprehensive Test Suite
 
 The system includes extensive testing covering various failure scenarios to ensure fault tolerance and correctness across all phases of the 2PC protocol.
@@ -189,4 +188,3 @@ All tests validate:
 - **Log Verification**: Automated verification of transaction log consistency
 - **State Validation**: Post-recovery state correctness checks
 - **Performance Metrics**: Latency and throughput measurements under failure scenarios
-```
