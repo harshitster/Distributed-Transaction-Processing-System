@@ -124,7 +124,7 @@ sequenceDiagram
 - **Data Partitioning**: Consistent hashing for scalable data distribution
 - **ACID Guarantees**: Full transactional semantics across distributed stores
 
-## Comprehensive Test Suite
+## Test Suite
 
 The system includes extensive testing covering various failure scenarios to ensure fault tolerance and correctness across all phases of the 2PC protocol.
 
@@ -165,26 +165,3 @@ The system includes extensive testing covering various failure scenarios to ensu
 - **T1 - Late Prepare ACK**: Late-arriving Prepare responses after coordinator timeout
 - **T2 - Late Commit ACK After Coordinator Crash**: Delayed commit acknowledgments after coordinator restart
 - **T3 - DISCARD Despite Commit Observed**: Conflicting PostPrepare outcomes between backends
-
-### Recovery Validation
-
-All tests validate:
-- ✅ **Transaction Atomicity**: All-or-nothing transaction semantics preserved
-- ✅ **Data Consistency**: Consistent state across all backend servers
-- ✅ **Durability**: Proper state reconstruction from persistent logs
-- ✅ **Idempotent Recovery**: Safe handling of duplicate recovery operations
-- ✅ **Termination Protocol**: Correct resolution of uncertain transaction states
-- ✅ **PostPrepare Logic**: Proper peer querying and decision resolution
-
-### Test Configuration
-
-**Multiple System Configurations:**
-- **Bins**: Tested with 1-8 data partitioning bins
-- **Backend Servers**: Validated with 1-4 backend instances
-- **Concurrency**: Various coordinator and backend restart combinations
-
-**Automated Test Framework:**
-- **Process Orchestration**: Precise crash timing simulation
-- **Log Verification**: Automated verification of transaction log consistency
-- **State Validation**: Post-recovery state correctness checks
-- **Performance Metrics**: Latency and throughput measurements under failure scenarios
