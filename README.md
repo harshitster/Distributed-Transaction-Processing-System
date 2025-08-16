@@ -165,3 +165,10 @@ The system includes extensive testing covering various failure scenarios to ensu
 - **T1 - Late Prepare ACK**: Late-arriving Prepare responses after coordinator timeout
 - **T2 - Late Commit ACK After Coordinator Crash**: Delayed commit acknowledgments after coordinator restart
 - **T3 - DISCARD Despite Commit Observed**: Conflicting PostPrepare outcomes between backends
+
+## Future Work
+- **Concurrent Transaction Support**: Key-level conflict detection
+- **Dynamic Node Management**: Automatic backend discovery
+- **Performance Optimizations**: Batching and pipelining
+- **Enhanced Monitoring**: Metrics and health checks
+- **Byzantine Fault Tolerance**: Advanced failure handling
